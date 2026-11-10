@@ -169,6 +169,85 @@ body {
   color: var(--texto-suave);
 }
 
+.pie a {
+  color: inherit;
+}
+
+/* ===== Enlaces ===== */
+.enlace {
+  display: inline-block;
+  margin-top: 14px;
+  color: var(--acento);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.enlace:hover,
+.enlace:focus-visible {
+  color: var(--acento-oscuro);
+  text-decoration: underline;
+}
+
+.volver {
+  display: inline-block;
+  color: #cfcfcf;
+  text-decoration: none;
+  font-size: 0.9rem;
+  margin-bottom: 32px;
+}
+
+.volver:hover,
+.volver:focus-visible {
+  color: #fff;
+}
+
+/* ===== Página de captación ===== */
+.seccion-alterna {
+  background: var(--superficie);
+  border-top: 1px solid var(--borde);
+  border-bottom: 1px solid var(--borde);
+}
+
+.seccion-alterna .tarjeta {
+  background: var(--fondo);
+}
+
+.texto-intro {
+  font-size: 1.1rem;
+  color: var(--texto-suave);
+  max-width: 680px;
+}
+
+.preguntas {
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+}
+
+.pregunta {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 18px 22px;
+}
+
+.pregunta summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.pregunta summary:focus-visible {
+  outline: 3px solid var(--acento);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.pregunta p {
+  color: var(--texto-suave);
+  margin-top: 10px;
+}
+
 /* ===== Pantallas más grandes ===== */
 @media (min-width: 720px) {
   .hero {
@@ -177,6 +256,10 @@ body {
 
   .tarjetas {
     grid-template-columns: repeat(3, 1fr);
+  }
+
+  .tarjetas-pasos {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .seccion {

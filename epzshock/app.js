@@ -5,6 +5,8 @@
 const CLAVE = 'epzshock:v1';
 const $ = (sel, raiz = document) => raiz.querySelector(sel);
 const vista = $('#vista');
+// Registro para los módulos extra (dieta, asistente, retos)
+const EXTRA = { vistas: {}, acciones: {}, forms: {}, inputs: {} };
 const modal = $('#modal');
 const modalCuerpo = $('#modal-cuerpo');
 
@@ -34,6 +36,8 @@ function estadoInicial() {
     sesiones: [],
     registros: [],
     pagos: [],
+    dietas: [],
+    retos: [],
     activo: null, // entreno en curso
   };
 }
@@ -127,6 +131,7 @@ function render() {
   const vistas = {
     hoy: vHoy, clientes: vClientes, cliente: vCliente, sesiones: vSesiones, sesion: vSesion,
     ejercicios: vEjercicios, pagos: vPagos, entreno: vEntreno, registro: vRegistro,
+    ...EXTRA.vistas,
   };
   vista.innerHTML = (vistas[ruta.vista || ruta.tab] || vHoy)();
   if (ruta.vista === 'entreno') tickReloj();
@@ -161,6 +166,7 @@ function vHoy() {
     </div>
 
     <button class="boton ancho" data-action="nuevo-entreno">⚡ Empezar entreno</button>
+    ${typeof bloqueRetosHoy === 'function' ? bloqueRetosHoy() : ''}
 
     ${pendientes.length ? `
       <h2>Cobros pendientes · ${mesBonito(mes)}</h2>
@@ -248,6 +254,8 @@ function vCliente() {
       <button class="boton" data-action="nuevo-entreno" data-cliente="${c.id}">⚡ Entrenar</button>
       <button class="boton sec" data-action="form-medida" data-id="${c.id}">+ Medidas</button>
       <button class="boton sec" data-action="editar-cliente" data-id="${c.id}">Editar</button>
+      <button class="boton sec" data-action="form-rutina" data-cliente="${c.id}">⚡ Rutina</button>
+      <button class="boton sec" data-action="form-dieta" data-cliente="${c.id}">⚡ Dieta</button>
     </div>
 
     <div class="stats">
@@ -333,8 +341,13 @@ function grafica(puntos) {
 function vSesiones() {
   const lista = [...db.sesiones].sort((a, b) => a.nombre.localeCompare(b.nombre));
   return `
+    ${segmentoEntreno('sesiones')}
     <div class="cabecera"><div><h1>Sesiones</h1><p class="sub">Tus plantillas de entrenamiento</p></div>
       <button class="boton" data-action="form-sesion">+ Nueva</button></div>
+    <div class="tarjeta asistente">
+      <div><b>⚡ Asistente EPZ</b><p class="sub">Genera una rutina completa en segundos según objetivo, días y lugar.</p></div>
+      <button class="boton" data-action="form-rutina">Crear rutina</button>
+    </div>
     ${lista.length ? lista.map(s => `
       <div class="tarjeta click" data-action="ver-sesion" data-id="${s.id}">
         <div class="fila"><b class="trunc">${esc(s.nombre)}</b><span class="chip">${s.items.length} ejercicios</span></div>
@@ -425,12 +438,20 @@ function textoSesion(s) {
   return lineas.join('\n');
 }
 
+function segmentoEntreno(activo) {
+  return `<div class="segmento">
+    <button class="${activo === 'sesiones' ? 'activo' : ''}" data-action="tab" data-tab="sesiones">Sesiones</button>
+    <button class="${activo === 'ejercicios' ? 'activo' : ''}" data-action="ir-ejercicios">Ejercicios</button>
+  </div>`;
+}
+
 /* ================= Vista: Ejercicios ================= */
 let filtroEj = '';
 function vEjercicios() {
   const f = filtroEj.toLowerCase();
   const grupos = GRUPOS.map(g => [g, db.ejercicios.filter(e => e.grupo === g && e.nombre.toLowerCase().includes(f)).sort((a, b) => a.nombre.localeCompare(b.nombre))]).filter(([, l]) => l.length);
   return `
+    ${segmentoEntreno('ejercicios')}
     <div class="cabecera"><div><h1>Ejercicios</h1><p class="sub">${db.ejercicios.length} en tu biblioteca</p></div>
       <button class="boton" data-action="form-ejercicio">+ Nuevo</button></div>
     <input class="buscar" type="search" placeholder="Buscar ejercicio…" value="${esc(filtroEj)}" data-input="filtro-ej">
@@ -817,6 +838,7 @@ document.addEventListener('click', e => {
     },
 
     'form-ejercicio': () => formEjercicio(id),
+    'ir-ejercicios': () => ir({ tab: 'sesiones', vista: 'ejercicios' }),
     'borrar-ejercicio'() {
       const usado = db.sesiones.some(s => s.items.some(i => i.ejercicioId === id));
       if (usado) { aviso('Está en alguna sesión: quítalo de ahí primero'); return; }
@@ -894,13 +916,15 @@ document.addEventListener('click', e => {
       guardar(); ir({ tab: 'hoy' });
     },
   };
-  if (acciones[action]) { e.preventDefault(); acciones[action](); }
+  const fn = acciones[action] || EXTRA.acciones[action];
+  if (fn) { e.preventDefault(); fn(el); }
 });
 
 document.addEventListener('input', e => {
   const el = e.target;
   if (el.dataset.input === 'filtro-clientes') { filtroClientes = el.value; refrescarConFoco(el); }
   else if (el.dataset.input === 'filtro-ej') { filtroEj = el.value; refrescarConFoco(el); }
+  else if (EXTRA.inputs[el.dataset.input]) EXTRA.inputs[el.dataset.input](el);
   else if (el.dataset.serie && db.activo) {
     db.activo.ejercicios[Number(el.dataset.e)].series[Number(el.dataset.s)][el.dataset.serie] = el.value;
     guardar(); // se guarda en cada tecla: nunca se pierde una serie
@@ -931,6 +955,7 @@ document.addEventListener('submit', e => {
   const d = datosForm(form);
   const id = form.dataset.id;
 
+  if (EXTRA.forms[tipo]) { EXTRA.forms[tipo](d, form); return; }
   if (tipo === 'cliente') {
     d.nombre = d.nombre.trim();
     if (id) Object.assign(porId('clientes', id), d);
@@ -978,8 +1003,11 @@ document.addEventListener('submit', e => {
 })();
 
 /* ================= Arranque ================= */
-if (db.activo) ruta = { tab: 'hoy', vista: 'entreno' };
-render();
+// Arranca cuando todos los módulos ya se registraron
+document.addEventListener('DOMContentLoaded', () => {
+  if (db.activo) ruta = { tab: 'hoy', vista: 'entreno' };
+  render();
+});
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

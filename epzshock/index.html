@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Epzshock</title>
+  <meta name="description" content="Epzshock — la app de entrenamiento de Erik Perez: clientes, sesiones, entrenos, progreso y pagos.">
+  <meta name="theme-color" content="#0e0f11">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EPZ">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="barra">
+    <div class="marca">
+      <span class="logo" aria-hidden="true">⚡</span>
+      <span class="marca-texto">EPZ<span class="marca-shock">SHOCK</span></span>
+    </div>
+    <button class="icono-btn" data-action="ajustes" aria-label="Ajustes y copia de seguridad">⚙︎</button>
+  </header>
+
+  <main id="vista" class="vista" tabindex="-1"></main>
+
+  <nav class="tabs" aria-label="Secciones">
+    <button data-tab="hoy" class="activo"><span>◉</span>Hoy</button>
+    <button data-tab="clientes"><span>☺</span>Clientes</button>
+    <button data-tab="sesiones"><span>▤</span>Sesiones</button>
+    <button data-tab="ejercicios"><span>⚑</span>Ejercicios</button>
+    <button data-tab="pagos"><span>$</span>Pagos</button>
+  </nav>
+
+  <dialog id="modal" class="modal"><div id="modal-cuerpo"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

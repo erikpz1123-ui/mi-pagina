@@ -5,8 +5,9 @@
   --borde: #2b2f35;
   --texto: #f2f3f0;
   --suave: #9aa0a6;
-  --acento: #d7ff3a;
-  --acento-texto: #0e0f11;
+  --acento: #2f80ff;
+  --acento-fuerte: #5c9bff;
+  --acento-texto: #ffffff;
   --fuego: #ff5a1f;
   --peligro: #ff5c5c;
   --ok: #3ddc84;
@@ -18,6 +19,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
+html, body { transition: background-color .25s, color .25s; }
 body {
   font-family: var(--fuente);
   background: var(--fondo);
@@ -34,7 +36,7 @@ button { cursor: pointer; }
   position: sticky; top: 0; z-index: 10;
   display: flex; align-items: center; justify-content: space-between;
   padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px;
-  background: rgba(14, 15, 17, .92);
+  background: color-mix(in srgb, var(--fondo) 92%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--borde);
 }
@@ -43,7 +45,7 @@ button { cursor: pointer; }
   display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px;
   background: var(--acento); color: var(--acento-texto); font-size: 18px;
 }
-.marca-shock { color: var(--acento); }
+.marca-shock { color: var(--acento-fuerte); }
 .icono-btn {
   width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--borde);
   background: var(--superficie); font-size: 18px;
@@ -74,7 +76,7 @@ h3 { font-size: 1rem; }
 .avatar {
   flex: none; width: 40px; height: 40px; border-radius: 50%;
   display: grid; place-items: center; font-weight: 800;
-  background: var(--superficie-2); color: var(--acento); border: 1px solid var(--borde);
+  background: var(--superficie-2); color: var(--acento-fuerte); border: 1px solid var(--borde);
 }
 .vacio { text-align: center; color: var(--suave); padding: 28px 12px; border: 1px dashed var(--borde); border-radius: var(--radio); }
 
@@ -89,21 +91,21 @@ h3 { font-size: 1rem; }
 }
 .chip.ok { color: var(--ok); border-color: rgba(61,220,132,.4); }
 .chip.no { color: var(--aviso); border-color: rgba(255,181,71,.4); }
-.chip.acento { color: var(--acento); border-color: rgba(215,255,58,.4); }
+.chip.acento { color: var(--acento-fuerte); border-color: color-mix(in srgb, var(--acento) 45%, transparent); }
 
 /* ===== Botones ===== */
 .boton {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   min-height: 44px; padding: 10px 16px; border-radius: 12px; border: 0;
   background: var(--acento); color: var(--acento-texto); font-weight: 800;
-  text-decoration: none;
+  text-decoration: none; white-space: nowrap;
 }
 .boton.sec { background: var(--superficie-2); color: var(--texto); border: 1px solid var(--borde); }
 .boton.peligro { background: transparent; color: var(--peligro); border: 1px solid rgba(255,92,92,.5); }
 .boton.mini { min-height: 34px; padding: 6px 12px; font-size: .85rem; border-radius: 10px; }
 .boton.ancho { width: 100%; }
 .botones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.enlace { background: none; border: 0; color: var(--acento); font-weight: 700; padding: 4px 0; text-decoration: none; }
+.enlace { background: none; border: 0; color: var(--acento-fuerte); font-weight: 700; padding: 4px 0; text-decoration: none; }
 
 /* ===== Formularios ===== */
 label { display: block; font-size: .82rem; color: var(--suave); margin: 10px 0 4px; }
@@ -131,7 +133,7 @@ textarea { min-height: 80px; resize: vertical; }
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
   display: grid; grid-template-columns: repeat(6, 1fr);
   padding: 6px 6px calc(6px + var(--seguro-abajo));
-  background: rgba(14, 15, 17, .96); border-top: 1px solid var(--borde);
+  background: color-mix(in srgb, var(--fondo) 96%, transparent); border-top: 1px solid var(--borde);
 }
 .tabs button {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -139,7 +141,7 @@ textarea { min-height: 80px; resize: vertical; }
   color: var(--suave); font-size: .7rem; font-weight: 600;
 }
 .tabs button span { font-size: 1.15rem; line-height: 1; }
-.tabs button.activo { color: var(--acento); }
+.tabs button.activo { color: var(--acento-fuerte); }
 
 /* ===== Sesión / ejercicios ===== */
 .item-ej { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
@@ -172,12 +174,12 @@ textarea { min-height: 80px; resize: vertical; }
   padding: 10px 12px 10px 18px; border-radius: 999px; box-shadow: 0 10px 30px rgba(0,0,0,.5);
 }
 .descanso button { border: 0; background: rgba(0,0,0,.15); border-radius: 999px; padding: 6px 12px; font-weight: 800; color: inherit; }
-.pr { color: var(--acento); font-size: .78rem; font-weight: 700; }
+.pr { color: var(--acento-fuerte); font-size: .78rem; font-weight: 700; }
 
 /* ===== Gráfica ===== */
 .grafica { width: 100%; height: 120px; display: block; }
-.grafica .linea { fill: none; stroke: var(--acento); stroke-width: 2.5; }
-.grafica .punto { fill: var(--acento); }
+.grafica .linea { fill: none; stroke: var(--acento-fuerte); stroke-width: 2.5; }
+.grafica .punto { fill: var(--acento-fuerte); }
 .grafica .eje { stroke: var(--borde); }
 .grafica text { fill: var(--suave); font-size: 10px; }
 
@@ -207,7 +209,7 @@ th { color: var(--suave); font-weight: 600; font-size: .75rem; }
 
 /* ===== Asistente ===== */
 .asistente { display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  border-color: rgba(215,255,58,.45); background: linear-gradient(135deg, rgba(215,255,58,.10), var(--superficie) 60%); }
+  border-color: color-mix(in srgb, var(--acento) 50%, transparent); background: linear-gradient(135deg, color-mix(in srgb, var(--acento) 14%, transparent), var(--superficie) 60%); }
 .prompt-claude { font-size: .82rem; min-height: 160px; font-family: ui-monospace, Menlo, monospace; }
 
 /* ===== Dieta ===== */
@@ -227,8 +229,42 @@ th { color: var(--suave); font-weight: 600; font-size: .75rem; }
 .premio span:first-child { font-size: 1.6rem; }
 .ranking-fila { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; }
 .puesto { font-size: 1.3rem; text-align: center; font-weight: 900; color: var(--suave); }
-.puntos { font-weight: 900; font-size: 1.1rem; color: var(--acento); text-align: right; }
+.puntos { font-weight: 900; font-size: 1.1rem; color: var(--acento-fuerte); text-align: right; }
 .barra-meta { height: 6px; border-radius: 99px; background: var(--superficie-2); margin-top: 6px; overflow: hidden; }
 .barra-meta i { display: block; height: 100%; background: var(--fuego); border-radius: 99px; }
 .post { border-left: 3px solid var(--fuego); }
 .aviso-nota { font-size: .8rem; color: var(--suave); margin-top: 10px; }
+
+/* ===== Modo día ===== */
+:root[data-modo="dia"] {
+  --fondo: #f4f6f9;
+  --superficie: #ffffff;
+  --superficie-2: #eceff3;
+  --borde: #d9dee5;
+  --texto: #11151a;
+  --suave: #5a6370;
+  --peligro: #d63333;
+  --ok: #138a4b;
+  --aviso: #b26a00;
+}
+:root[data-modo="dia"] .modal::backdrop { background: rgba(10, 20, 40, .45); }
+:root[data-modo="dia"] .tarjeta, :root[data-modo="dia"] .stat { box-shadow: 0 1px 2px rgba(16, 24, 40, .05); }
+:root[data-modo="dia"] .check.hecho { color: #fff; }
+:root[data-modo="dia"] .toast { background: #11151a; color: #fff; }
+
+/* ===== Filtros y apariencia ===== */
+.filtros { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.filtro {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0;
+  padding: 7px 12px; border-radius: 999px; border: 1px solid var(--borde);
+  background: var(--superficie); color: var(--texto); font-size: .82rem; font-weight: 600; cursor: pointer;
+}
+.filtro.activo { background: var(--acento); color: var(--acento-texto); border-color: var(--acento); }
+.check-tag input { width: auto; min-height: auto; accent-color: var(--acento); }
+.check-tag:has(input:checked) { border-color: var(--acento); }
+.muestra { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); }
+.calendario-color { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 8px; }
+.calendario-color span {
+  border-radius: 8px; padding: 8px 0; text-align: center; font-size: .72rem; font-weight: 800; color: #0e0f11; opacity: .75;
+}
+.calendario-color span.hoy { opacity: 1; outline: 2px solid var(--texto); outline-offset: 2px; }

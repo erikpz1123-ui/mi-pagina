@@ -274,16 +274,17 @@ function dibujarStory(r, modo) {
   cv.width = W; cv.height = H;
   const ctx = cv.getContext('2d');
   const F = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif';
+  const C = coloresStory();
   ctx.fillStyle = '#0e0f11'; ctx.fillRect(0, 0, W, H);
   const g = ctx.createRadialGradient(150, 150, 50, 150, 150, 1100);
   g.addColorStop(0, 'rgba(255,90,31,.55)'); g.addColorStop(1, 'rgba(255,90,31,0)');
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   // marca
-  ctx.fillStyle = '#d7ff3a'; ctx.beginPath(); ctx.roundRect(80, 90, 96, 96, 24); ctx.fill();
-  ctx.fillStyle = '#0e0f11'; ctx.font = `900 64px ${F}`; ctx.textAlign = 'center'; ctx.fillText('⚡', 128, 162);
+  ctx.fillStyle = C.acentoRelleno; ctx.beginPath(); ctx.roundRect(80, 90, 96, 96, 24); ctx.fill();
+  ctx.fillStyle = C.acentoTexto; ctx.font = `900 64px ${F}`; ctx.textAlign = 'center'; ctx.fillText('⚡', 128, 162);
   ctx.textAlign = 'left'; ctx.font = `900 56px ${F}`;
   ctx.fillStyle = '#f2f3f0'; ctx.fillText('EPZ', 200, 158);
-  ctx.fillStyle = '#d7ff3a'; ctx.fillText('SHOCK', 200 + ctx.measureText('EPZ').width, 158);
+  ctx.fillStyle = C.acento; ctx.fillText('SHOCK', 200 + ctx.measureText('EPZ').width, 158);
 
   const rk = ranking(r).filter(x => x.v !== null);
   ctx.fillStyle = '#ff5a1f'; ctx.font = `800 44px ${F}`;
@@ -294,7 +295,7 @@ function dibujarStory(r, modo) {
   if (modo === 'ganador' && rk[0]) {
     y += 140;
     ctx.font = `200px ${F}`; ctx.textAlign = 'center'; ctx.fillText('🏆', W / 2, y + 60);
-    ctx.fillStyle = '#d7ff3a'; ctx.font = `900 110px ${F}`;
+    ctx.fillStyle = C.acento; ctx.font = `900 110px ${F}`;
     y = envolver(ctx, rk[0].p.nombre, W / 2, y + 240, W - 160, 120);
     ctx.fillStyle = '#f2f3f0'; ctx.font = `800 70px ${F}`; ctx.fillText(formatoPuntos(r, rk[0].v), W / 2, y + 40);
     if (r.premio) { ctx.fillStyle = '#9aa0a6'; ctx.font = `600 46px ${F}`; envolver(ctx, `Se lleva: ${r.premio}`, W / 2, y + 150, W - 200, 56); }
@@ -302,14 +303,14 @@ function dibujarStory(r, modo) {
   } else {
     y += 60;
     rk.slice(0, 6).forEach(({ p, v }, i) => {
-      ctx.fillStyle = i === 0 ? 'rgba(215,255,58,.14)' : 'rgba(255,255,255,.06)';
+      ctx.fillStyle = i === 0 ? C.acentoRelleno + '26' : 'rgba(255,255,255,.06)';
       ctx.beginPath(); ctx.roundRect(70, y, W - 140, 150, 32); ctx.fill();
       ctx.font = `800 68px ${F}`; ctx.fillStyle = '#f2f3f0'; ctx.textAlign = 'center';
       ctx.fillText(i < 3 ? MEDALLAS[i] : String(i + 1), 160, y + 100);
       ctx.textAlign = 'left'; ctx.font = `800 54px ${F}`;
       const nombre = p.nombre.length > 16 ? p.nombre.slice(0, 15) + '…' : p.nombre;
       ctx.fillText(nombre, 240, y + 95);
-      ctx.textAlign = 'right'; ctx.fillStyle = '#d7ff3a'; ctx.font = `900 56px ${F}`;
+      ctx.textAlign = 'right'; ctx.fillStyle = C.acento; ctx.font = `900 56px ${F}`;
       ctx.fillText(formatoPuntos(r, v), W - 110, y + 95);
       ctx.textAlign = 'left';
       y += 175;
@@ -323,7 +324,7 @@ function dibujarStory(r, modo) {
     }
   }
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#d7ff3a'; ctx.font = `900 76px ${F}`; ctx.fillText(r.hashtag || '#RetoEPZ', W / 2, H - 190);
+  ctx.fillStyle = C.acento; ctx.font = `900 76px ${F}`; ctx.fillText(r.hashtag || '#RetoEPZ', W / 2, H - 190);
   ctx.fillStyle = '#9aa0a6'; ctx.font = `600 40px ${F}`; ctx.fillText('Entrena con Erik Perez · EPZSHOCK', W / 2, H - 110);
   return cv;
 }

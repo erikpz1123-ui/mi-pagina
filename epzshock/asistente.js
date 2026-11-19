@@ -18,9 +18,11 @@ const PATRONES = {
                 casa: [['Remo con mancuerna', 'Espalda']] },
   hombro:     { gym: [['Elevaciones laterales', 'Hombro'], ['Face pull', 'Hombro']], casa: [['Elevaciones laterales', 'Hombro']] },
   biceps:     { gym: [['Curl de bíceps', 'Brazo']], casa: [['Curl de bíceps', 'Brazo']] },
-  triceps:    { gym: [['Extensión de tríceps en polea', 'Brazo'], ['Fondos', 'Brazo']], casa: [['Fondos', 'Brazo']] },
+  triceps:    { gym: [['Extensión de tríceps en polea', 'Brazo'], ['Fondos', 'Brazo']], casa: [['Fondos en silla', 'Brazo'], ['Flexiones diamante', 'Brazo']] },
   core:       { gym: [['Plancha', 'Core'], ['Rueda abdominal', 'Core'], ['Pallof press', 'Core']],
                 casa: [['Plancha', 'Core'], ['Dead bug', 'Core']] },
+  plio:       { gym: [['Salto al cajón', 'Pierna'], ['Salto de longitud a pies juntos', 'Pierna'], ['Saltos laterales', 'Pierna'], ['Lanzamiento de balón medicinal al suelo', 'Cuerpo completo']],
+                casa: [['Sentadilla con salto', 'Pierna'], ['Salto de longitud a pies juntos', 'Pierna'], ['Saltos de patinador', 'Pierna'], ['Saltos de tobillo (pogos)', 'Pierna']] },
   cardio:     { gym: [['Bicicleta estática', 'Cardio'], ['Burpees', 'Cardio']], casa: [['Burpees', 'Cardio']] },
 };
 
@@ -47,6 +49,7 @@ const OBJETIVOS = {
   fuerza:      { nombre: 'Ganar fuerza', principal: [5, '4-6', 180], accesorio: [3, '8-10', 90] },
   grasa:       { nombre: 'Perder grasa', principal: [3, '10-12', 60], accesorio: [3, '12-15', 45], cardio: true },
   salud:       { nombre: 'Principiante / salud', principal: [3, '10-12', 75], accesorio: [2, '12-15', 60] },
+  potencia:    { nombre: 'Explosividad / deporte', principal: [4, '3-5 explosivas', 150], accesorio: [3, '6-8', 90], plio: true },
 };
 
 function asegurarEjercicio(nombre, grupo) {
@@ -55,7 +58,14 @@ function asegurarEjercicio(nombre, grupo) {
   return e.id;
 }
 
-function generarRutina({ objetivo, dias, lugar, prefijo }) {
+// Bloques de prevención que rotan entre sesiones (respaldo: FIFA 11+, curl nórdico, Copenhague)
+const BLOQUES_PREVENCION = [
+  [['Curl nórdico', 'Pierna', '3', '4-6', 'Excéntrico lento'], ['Plancha Copenhague', 'Core', '2', '20-30 s', 'Por lado']],
+  [['Rotación externa de hombro con liga', 'Hombro', '2', '12-15', 'Codo pegado'], ['Equilibrio a una pierna', 'Pierna', '2', '30-45 s', 'Por pierna']],
+  [['Monster walk con liga', 'Glúteo', '2', '10 pasos', 'Por lado'], ['Y-T-W', 'Hombro', '2', '8 de cada', 'Lento']],
+];
+
+function generarRutina({ objetivo, dias, lugar, prefijo, prevencion }) {
   const obj = OBJETIVOS[objetivo];
   const conteo = {}; // para variar ejercicios cuando un día se repite
   return SPLITS[dias].map(tipo => {
@@ -71,6 +81,15 @@ function generarRutina({ objetivo, dias, lugar, prefijo }) {
         notas: i < 2 ? 'Ejercicio principal · RIR 1-2' : 'RIR 1-2',
       };
     });
+    if (obj.plio) {
+      const [nombre, grupo] = PATRONES.plio[lugar][(vez + DIAS_TIPO[tipo].length) % PATRONES.plio[lugar].length];
+      items.unshift({ ejercicioId: asegurarEjercicio(nombre, grupo), series: 4, reps: '3-5', descanso: 120, carga: '', notas: 'Al inicio, sin fatiga · máxima intención' });
+    }
+    if (prevencion) {
+      const idx = SPLITS[dias].indexOf(tipo) + vez;
+      BLOQUES_PREVENCION[idx % BLOQUES_PREVENCION.length].forEach(([nombre, grupo, series, reps, notas]) =>
+        items.push({ ejercicioId: asegurarEjercicio(nombre, grupo), series: Number(series), reps, descanso: 45, carga: '', notas: `🛡️ Prevención · ${notas}` }));
+    }
     if (obj.cardio) {
       const [nombre, grupo] = PATRONES.cardio[lugar][vez % PATRONES.cardio[lugar].length];
       items.push({ ejercicioId: asegurarEjercicio(nombre, grupo), series: 4, reps: '30 s fuerte / 30 s suave', descanso: 30, carga: '', notas: 'Finisher metabólico' });
@@ -98,6 +117,7 @@ function formRutina(clienteId = '') {
         <div><label>Días por semana</label><select name="dias">${[2, 3, 4, 5, 6].map(n => `<option ${n === 3 ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
         <div><label>Lugar</label><select name="lugar"><option value="gym">Gimnasio</option><option value="casa">Casa (mancuernas)</option></select></div>
       </div>
+      <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" name="prevencion" checked style="width:auto;min-height:auto"> 🛡️ Añadir bloque de prevención de lesiones</label>
       <div class="botones">
         <button class="boton" type="submit">Generar</button>
         <button class="boton sec" type="button" data-action="prompt-rutina">Pedírsela a Claude</button>

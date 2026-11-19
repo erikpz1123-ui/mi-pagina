@@ -11,18 +11,8 @@ const modal = $('#modal');
 const modalCuerpo = $('#modal-cuerpo');
 
 /* ================= Datos ================= */
-const GRUPOS = ['Pierna', 'Glúteo', 'Pecho', 'Espalda', 'Hombro', 'Brazo', 'Core', 'Cardio', 'Movilidad', 'Otro'];
+const GRUPOS = ['Pierna', 'Glúteo', 'Pecho', 'Espalda', 'Hombro', 'Brazo', 'Core', 'Cuerpo completo', 'Cardio', 'Movilidad', 'Otro'];
 
-const EJERCICIOS_BASE = [
-  ['Sentadilla trasera', 'Pierna'], ['Sentadilla goblet', 'Pierna'], ['Prensa de pierna', 'Pierna'],
-  ['Zancadas', 'Pierna'], ['Peso muerto rumano', 'Glúteo'], ['Hip thrust', 'Glúteo'],
-  ['Peso muerto convencional', 'Espalda'], ['Dominadas', 'Espalda'], ['Remo con barra', 'Espalda'],
-  ['Jalón al pecho', 'Espalda'], ['Press banca', 'Pecho'], ['Press inclinado mancuernas', 'Pecho'],
-  ['Flexiones', 'Pecho'], ['Press militar', 'Hombro'], ['Elevaciones laterales', 'Hombro'],
-  ['Curl de bíceps', 'Brazo'], ['Extensión de tríceps en polea', 'Brazo'], ['Fondos', 'Brazo'],
-  ['Plancha', 'Core'], ['Rueda abdominal', 'Core'], ['Pallof press', 'Core'],
-  ['Bicicleta estática', 'Cardio'], ['Burpees', 'Cardio'], ['Movilidad de cadera 90/90', 'Movilidad'],
-];
 
 function uid() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -32,7 +22,8 @@ function estadoInicial() {
   return {
     version: 1,
     clientes: [],
-    ejercicios: EJERCICIOS_BASE.map(([nombre, grupo]) => ({ id: uid(), nombre, grupo, video: '', notas: '' })),
+    ejercicios: BIBLIOTECA.map(b => ({ id: uid(), video: '', notas: '', ...b })),
+    biblioteca: BIBLIOTECA.length,
     sesiones: [],
     registros: [],
     pagos: [],
@@ -45,7 +36,16 @@ function estadoInicial() {
 function cargar() {
   try {
     const crudo = localStorage.getItem(CLAVE);
-    if (crudo) return Object.assign(estadoInicial(), JSON.parse(crudo));
+    if (crudo) {
+      const guardados = JSON.parse(crudo);
+      const datos = Object.assign(estadoInicial(), guardados);
+      if (guardados.biblioteca === BIBLIOTECA.length) return datos;
+      // Datos de una versión anterior: añade los ejercicios nuevos sin tocar los del usuario
+      if (!Array.isArray(guardados.ejercicios)) datos.ejercicios = [];
+      sincronizarBiblioteca(datos);
+      localStorage.setItem(CLAVE, JSON.stringify(datos));
+      return datos;
+    }
   } catch (e) { console.warn('No se pudieron leer los datos', e); }
   return estadoInicial();
 }
@@ -447,36 +447,77 @@ function segmentoEntreno(activo) {
 
 /* ================= Vista: Ejercicios ================= */
 let filtroEj = '';
+let filtroTag = '';
 function vEjercicios() {
-  const f = filtroEj.toLowerCase();
-  const grupos = GRUPOS.map(g => [g, db.ejercicios.filter(e => e.grupo === g && e.nombre.toLowerCase().includes(f)).sort((a, b) => a.nombre.localeCompare(b.nombre))]).filter(([, l]) => l.length);
+  const f = normalizarNombre(filtroEj);
+  const pasa = e => normalizarNombre(e.nombre + ' ' + (e.musculos || '')).includes(f) && (!filtroTag || (e.tags || []).includes(filtroTag));
+  const grupos = GRUPOS.map(g => [g, db.ejercicios.filter(e => e.grupo === g && pasa(e)).sort((a, b) => a.nombre.localeCompare(b.nombre))]).filter(([, l]) => l.length);
+  const total = grupos.reduce((n, [, l]) => n + l.length, 0);
   return `
     ${segmentoEntreno('ejercicios')}
-    <div class="cabecera"><div><h1>Ejercicios</h1><p class="sub">${db.ejercicios.length} en tu biblioteca</p></div>
+    <div class="cabecera"><div><h1>Ejercicios</h1><p class="sub">${db.ejercicios.length} en tu biblioteca, explicados paso a paso</p></div>
       <button class="boton" data-action="form-ejercicio">+ Nuevo</button></div>
-    <input class="buscar" type="search" placeholder="Buscar ejercicio…" value="${esc(filtroEj)}" data-input="filtro-ej">
+    <input class="buscar" type="search" placeholder="Buscar por nombre o músculo…" value="${esc(filtroEj)}" data-input="filtro-ej">
+    <div class="filtros">
+      <button class="filtro ${filtroTag ? '' : 'activo'}" data-action="filtro-tag" data-tag="">Todos</button>
+      ${Object.entries(ETIQUETAS).map(([k, [ico, txt]]) => `<button class="filtro ${filtroTag === k ? 'activo' : ''}" data-action="filtro-tag" data-tag="${k}">${ico} ${txt}</button>`).join('')}
+    </div>
+    ${filtroTag || f ? `<p class="sub" style="margin-bottom:6px">${total} resultados</p>` : ''}
+    ${filtroTag === 'rehab' ? '<div class="tarjeta sub">🩹 Ejercicios de recuperación orientativos. Ante lesión aguda, dolor fuerte o cirugía, coordina con fisioterapeuta o médico. Regla práctica: molestia ≤ 3/10 que no empeora al día siguiente.</div>' : ''}
+    ${filtroTag === 'plio' ? '<div class="tarjeta sub">🦘 Progresión: primero aterrizajes y pogos, luego saltos al cajón y horizontales, al final drop jumps. Pocas repeticiones, máxima calidad y descanso completo.</div>' : ''}
     ${grupos.length ? grupos.map(([g, l]) => `
       <h2>${g} <span class="sub">(${l.length})</span></h2>
       ${l.map(e => `
-        <div class="tarjeta click fila" data-action="form-ejercicio" data-id="${e.id}">
-          <div class="trunc"><b>${esc(e.nombre)}</b>${e.notas ? `<div class="sub trunc">${esc(e.notas)}</div>` : ''}</div>
-          ${e.video ? '<span class="chip acento">▶ vídeo</span>' : ''}
+        <div class="tarjeta click fila" data-action="ver-ejercicio" data-id="${e.id}">
+          <div class="trunc"><b>${esc(e.nombre)}</b>
+            <div class="sub trunc">${(e.tags || []).map(t => ETIQUETAS[t]?.[0] || '').join(' ')} ${esc(e.nivel || '')}${e.musculos ? ' · ' + esc(e.musculos) : ''}</div></div>
+          ${e.video ? '<span class="chip acento">▶</span>' : ''}
         </div>`).join('')}`).join('') : '<div class="vacio">No hay ejercicios que coincidan.</div>'}
   `;
 }
 
+function verEjercicio(id) {
+  const e = porId('ejercicios', id);
+  if (!e) return;
+  abrirModal(`
+    <h2>${esc(e.nombre)}</h2>
+    <div class="filtros" style="margin-bottom:6px">
+      <span class="chip">${esc(e.grupo)}</span>${e.nivel ? `<span class="chip">${esc(e.nivel)}</span>` : ''}
+      ${(e.tags || []).map(t => `<span class="chip acento">${ETIQUETAS[t]?.join(' ') || t}</span>`).join('')}
+    </div>
+    ${e.musculos ? `<p class="sub"><b>Músculos:</b> ${esc(e.musculos)}</p>` : ''}
+    ${e.equipo ? `<p class="sub"><b>Material:</b> ${esc(e.equipo)}</p>` : ''}
+    ${e.como ? `<h3 style="margin-top:14px">Cómo se hace</h3><p>${esc(e.como)}</p>` : ''}
+    ${e.clave ? `<h3 style="margin-top:14px">Clave / errores comunes</h3><p>${esc(e.clave)}</p>` : ''}
+    ${e.notas ? `<h3 style="margin-top:14px">Mis notas</h3><p>${esc(e.notas)}</p>` : ''}
+    ${!e.como && !e.notas ? '<p class="sub">Aún no tiene explicación. Pulsa «Editar» para añadirla.</p>' : ''}
+    <div class="botones">
+      ${e.video ? `<a class="boton" href="${esc(e.video)}" target="_blank" rel="noopener">▶ Ver vídeo</a>` : ''}
+      <button class="boton sec" data-action="form-ejercicio" data-id="${e.id}">Editar</button>
+      <button class="boton sec" data-action="cerrar">Cerrar</button>
+    </div>`);
+}
+
 function formEjercicio(id) {
-  const e = id ? porId('ejercicios', id) : { grupo: 'Pierna' };
+  const e = id ? porId('ejercicios', id) : { grupo: 'Pierna', tags: [] };
   abrirModal(`
     <h2>${id ? 'Editar ejercicio' : 'Nuevo ejercicio'}</h2>
     <form data-form="ejercicio" data-id="${id ?? ''}">
       <label>Nombre *</label><input name="nombre" required value="${esc(e.nombre)}">
-      <label>Grupo</label><select name="grupo">${GRUPOS.map(g => `<option ${g === e.grupo ? 'selected' : ''}>${g}</option>`).join('')}</select>
+      <div class="rejilla-2">
+        <div><label>Grupo</label><select name="grupo">${GRUPOS.map(g => `<option ${g === e.grupo ? 'selected' : ''}>${g}</option>`).join('')}</select></div>
+        <div><label>Nivel</label><select name="nivel">${['', 'Principiante', 'Intermedio', 'Avanzado'].map(n => `<option ${n === (e.nivel || '') ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+      </div>
+      <label>Categorías</label>
+      <div class="filtros">${Object.entries(ETIQUETAS).map(([k, [ico, txt]]) => `<label class="filtro check-tag"><input type="checkbox" name="tag-${k}" ${(e.tags || []).includes(k) ? 'checked' : ''}> ${ico} ${txt}</label>`).join('')}</div>
+      <label>Músculos</label><input name="musculos" value="${esc(e.musculos)}">
+      <label>Material</label><input name="equipo" value="${esc(e.equipo)}">
+      <label>Cómo se hace</label><textarea name="como">${esc(e.como)}</textarea>
+      <label>Clave / errores comunes</label><textarea name="clave">${esc(e.clave)}</textarea>
       <label>Enlace de vídeo (YouTube, Instagram, Drive…)</label><input name="video" type="url" placeholder="https://" value="${esc(e.video)}">
-      <label>Técnica / puntos clave</label><textarea name="notas">${esc(e.notas)}</textarea>
+      <label>Mis notas</label><textarea name="notas">${esc(e.notas)}</textarea>
       <div class="botones"><button class="boton" type="submit">Guardar</button>
         <button class="boton sec" type="button" data-action="cerrar">Cancelar</button>
-        ${e.video ? `<a class="boton sec" href="${esc(e.video)}" target="_blank" rel="noopener">▶ Ver vídeo</a>` : ''}
         ${id ? `<button class="boton peligro" type="button" data-action="borrar-ejercicio" data-id="${id}">Borrar</button>` : ''}
       </div>
     </form>`);
@@ -583,7 +624,8 @@ function vEntreno() {
       return `
       <div class="tarjeta">
         <div class="fila"><b>${ei + 1}. ${esc(e.nombre)}</b>
-          ${ej?.video ? `<a class="chip acento" href="${esc(ej.video)}" target="_blank" rel="noopener" style="text-decoration:none">▶ vídeo</a>` : ''}</div>
+          <span class="filtros" style="margin:0;flex-wrap:nowrap">${ej?.video ? `<a class="chip acento" href="${esc(ej.video)}" target="_blank" rel="noopener" style="text-decoration:none">▶</a>` : ''}
+          ${ej ? `<button class="chip" data-action="ver-ejercicio" data-id="${ej.id}" aria-label="Cómo se hace">ℹ︎ cómo</button>` : ''}</span></div>
         <div class="sub">Objetivo: ${esc(e.objetivo)} reps · descanso ${e.descanso}s${e.notas ? ` · ${esc(e.notas)}` : ''}</div>
         <div class="serie-cab"><span>#</span><span>kg</span><span>reps</span><span></span></div>
         ${e.series.map((s, si) => `
@@ -712,6 +754,7 @@ function vAjustes() {
       <label class="boton sec" style="margin:0;color:var(--texto)">⬆ Restaurar copia
         <input type="file" accept="application/json,.json" data-input="importar" hidden></label>
     </div>
+    ${bloqueTema()}
     <h2>Instalar en el móvil</h2>
     <p class="sub">iPhone: Safari → Compartir → «Añadir a pantalla de inicio».<br>
       Android: Chrome → menú ⋮ → «Instalar aplicación».</p>
@@ -839,6 +882,8 @@ document.addEventListener('click', e => {
 
     'form-ejercicio': () => formEjercicio(id),
     'ir-ejercicios': () => ir({ tab: 'sesiones', vista: 'ejercicios' }),
+    'ver-ejercicio': () => verEjercicio(id),
+    'filtro-tag'() { filtroTag = el.dataset.tag; render(); },
     'borrar-ejercicio'() {
       const usado = db.sesiones.some(s => s.items.some(i => i.ejercicioId === id));
       if (usado) { aviso('Está en alguna sesión: quítalo de ahí primero'); return; }
@@ -983,10 +1028,12 @@ document.addEventListener('submit', e => {
   } else if (tipo === 'ejercicio') {
     const nombre = d.nombre.trim();
     // Evita duplicados (una queja habitual de Stenfit)
-    const dup = db.ejercicios.find(x => x.id !== id && x.nombre.toLowerCase() === nombre.toLowerCase());
+    const dup = db.ejercicios.find(x => x.id !== id && normalizarNombre(x.nombre) === normalizarNombre(nombre));
     if (dup) { aviso('Ya existe un ejercicio con ese nombre'); return; }
-    if (id) Object.assign(porId('ejercicios', id), d, { nombre });
-    else db.ejercicios.push({ id: uid(), ...d, nombre });
+    const tags = Object.keys(ETIQUETAS).filter(k => d['tag-' + k]);
+    Object.keys(d).filter(k => k.startsWith('tag-')).forEach(k => delete d[k]);
+    if (id) Object.assign(porId('ejercicios', id), d, { nombre, tags });
+    else db.ejercicios.push({ id: uid(), ...d, nombre, tags });
     guardar(); cerrarModal(); render(); aviso('Ejercicio guardado ✓');
   } else if (tipo === 'nuevo-entreno') {
     cerrarModal();

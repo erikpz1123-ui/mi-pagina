@@ -1,6 +1,6 @@
 // Epzshock — service worker: la app funciona sin conexión.
-const CACHE = 'epzshock-v2';
-const ARCHIVOS = ['./', 'index.html', 'app.css', 'app.js', 'asistente.js', 'dieta.js', 'retos.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'epzshock-v3';
+const ARCHIVOS = ['./', 'index.html', 'app.css', 'tema.js', 'biblioteca.js', 'app.js', 'asistente.js', 'dieta.js', 'retos.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARCHIVOS)).then(() => self.skipWaiting()));

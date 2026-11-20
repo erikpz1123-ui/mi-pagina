@@ -6,6 +6,6 @@
 window.EPZ_CONFIG = {
   supabaseUrl: 'https://wxpyomxibunbprtlzkgs.supabase.co',
   supabaseAnonKey: 'sb_publishable_Xogkyh1diWT1r8-i6bqA3A_u2pWIKMs',
-  appUrl: '',
+  appUrl: 'https://epzshock.netlify.app/',
   demo: false,
 };

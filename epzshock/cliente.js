@@ -20,6 +20,7 @@ const NAV_ENTRENADOR = document.querySelector('.tabs').innerHTML;
 
 /* ================= Arranque ================= */
 async function arrancar() {
+  if (Nube.vieneDeRecuperacion) return pantallaNuevaPassword();
   if (params.get('invitacion')) return pantallaRegistro(params.get('invitacion'));
   if (params.get('ref')) return pantallaSolicitud(params.get('ref'));
 
@@ -68,6 +69,7 @@ function pantallaBienvenida(msg = '') {
       <label>Correo</label><input name="email" type="email" autocomplete="email" required>
       <label>Contraseña</label><input name="password" type="password" autocomplete="current-password" required>
       <div class="botones"><button class="boton ancho" type="submit">Entrar</button></div>
+      <p style="text-align:center;margin-top:10px"><button class="enlace" type="button" data-action="c-olvide">¿Olvidaste tu contraseña?</button></p>
     </form>
     <div class="tarjeta">
       <b>¿Aún no tienes cuenta?</b>
@@ -108,6 +110,53 @@ function pantallaSolicitud(ref) {
       <div class="botones"><button class="boton ancho" type="submit">Quiero entrenar con Erik</button></div>
     </form>`);
 }
+
+function pantallaOlvide() {
+  modoPublico(`
+    <div class="bienvenida"><img src="icon-512.png" alt="" class="bienvenida-logo"><h1>Recupera tu acceso</h1>
+      <p class="sub">Escribe el correo de tu cuenta y te enviaremos un link para crear una contraseña nueva.</p></div>
+    <form data-form="c-olvide" class="tarjeta">
+      <label for="olvide-email">Correo</label><input id="olvide-email" name="email" type="email" autocomplete="email" required>
+      <div class="botones"><button class="boton ancho" type="submit">Enviarme el link</button></div>
+    </form>
+    <p style="text-align:center"><button class="enlace" data-action="c-volver">← Volver</button></p>`);
+}
+
+async function pantallaNuevaPassword() {
+  await Nube.sesion().catch(() => null); // termina de leer el link del correo
+  modoPublico(`
+    <div class="bienvenida"><img src="icon-512.png" alt="" class="bienvenida-logo"><h1>Nueva contraseña</h1>
+      <p class="sub">Elige una contraseña de al menos 8 caracteres.</p></div>
+    <form data-form="c-nueva-password" class="tarjeta">
+      <label for="np1">Contraseña nueva</label><input id="np1" name="p1" type="password" minlength="8" autocomplete="new-password" required>
+      <label for="np2">Repítela</label><input id="np2" name="p2" type="password" minlength="8" autocomplete="new-password" required>
+      <div class="botones"><button class="boton ancho" type="submit">Guardar y entrar</button></div>
+    </form>`);
+}
+
+EXTRA.acciones['c-olvide'] = () => pantallaOlvide();
+EXTRA.acciones['c-volver'] = () => pantallaBienvenida();
+EXTRA.forms['c-olvide'] = async (d, form) => {
+  const boton = form.querySelector('[type=submit]'); boton.disabled = true;
+  try {
+    await Nube.recuperar(d.email);
+    pantallaBienvenida(`Si ${d.email} tiene cuenta, te llegará un correo con el link para crear tu contraseña nueva. Revisa también la carpeta de spam.`);
+  } catch (e) { aviso(e.message); boton.disabled = false; }
+};
+EXTRA.forms['c-nueva-password'] = async (d, form) => {
+  if (d.p1 !== d.p2) { aviso('Las contraseñas no coinciden'); return; }
+  if (String(d.p1).length < 8) { aviso('Usa al menos 8 caracteres'); return; }
+  const boton = form.querySelector('[type=submit]'); boton.disabled = true;
+  try {
+    await Nube.cambiarPassword(d.p1);
+    history.replaceState(null, '', location.pathname);
+    aviso('Contraseña guardada ✓');
+    const s = await Nube.sesion();
+    if (s?.perfil.rol === 'entrenador') { localStorage.setItem(CLAVE_MODO, 'entrenador'); return arrancarEntrenador(); }
+    if (s?.perfil.rol === 'cliente') { cli.perfil = s.perfil; return arrancarCliente(); }
+    pantallaBienvenida('Contraseña guardada. Ya puedes entrar.');
+  } catch (e) { aviso(/expired|invalid|jwt|sesión/i.test(e.message) ? 'El link venció. Pide uno nuevo con «¿Olvidaste tu contraseña?».' : e.message); boton.disabled = false; }
+};
 
 EXTRA.forms['c-entrar'] = async d => {
   try {

@@ -7,6 +7,8 @@
 const Nube = (() => {
   const C = window.EPZ_CONFIG || {};
   const esReal = !!(C.supabaseUrl && C.supabaseAnonKey && window.supabase);
+  // El link del correo "olvidé mi contraseña" llega con #...type=recovery (se lee antes de que el cliente limpie la URL)
+  const vieneDeRecuperacion = /type=recovery/.test(location.hash);
   const esDemo = !esReal && !!C.demo;
   const appUrl = () => (C.appUrl || (location.origin + location.pathname)).split('?')[0].split('#')[0];
 
@@ -43,6 +45,10 @@ const Nube = (() => {
       },
       async entrar(email, password) { ok(await sb.auth.signInWithPassword({ email, password })); return this.sesion(); },
       async salir() { await sb.auth.signOut(); },
+      async recuperar(email) {
+        ok(await sb.auth.resetPasswordForEmail(String(email).trim().toLowerCase(), { redirectTo: appUrl() }));
+      },
+      async cambiarPassword(password) { ok(await sb.auth.updateUser({ password })); },
       registrar: d => fn('registro', d),
       enviarSolicitud: d => fn('solicitud', d),
       // ---- cliente ----
@@ -142,6 +148,8 @@ const Nube = (() => {
         return this.sesion();
       },
       async salir() { localStorage.removeItem(SESION); },
+      recuperar: () => espera(undefined), // en demo no se envían correos
+      cambiarPassword: password => op(() => { const p = exigir(); s.usuarios.find(u => u.id === p.id).password = password; }),
       registrar: d => op(() => {
         const inv = s.invitaciones.find(i => i.codigo === d.codigo);
         if (!inv || inv.usada_por || inv.expira_en < ahora()) throw new Error('Esta invitación no es válida o ya se usó. Pide a Erik un link nuevo.');
@@ -264,6 +272,7 @@ const Nube = (() => {
 
   const api = esReal ? crearReal() : esDemo ? crearDemo() : crearNula();
   api.appUrl = appUrl;
+  api.vieneDeRecuperacion = vieneDeRecuperacion;
   api.linkInvitacion = codigo => `${appUrl()}?invitacion=${encodeURIComponent(codigo)}`;
   api.linkReferido = codigo => `${appUrl()}?ref=${encodeURIComponent(codigo)}`;
   api.enLinea = () => navigator.onLine !== false;

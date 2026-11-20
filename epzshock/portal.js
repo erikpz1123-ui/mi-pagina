@@ -162,12 +162,19 @@ function vAppClientes() {
       <p class="sub">El registro es solo con tu link. Desde la ficha de cada cliente también puedes invitarlo.</p>
       <div class="botones"><button class="boton" data-action="invitar-nuevo">Crear invitación</button></div>
     </div>
+    <div class="tarjeta">
+      <b>📣 Link para tus redes</b>
+      <p class="sub">Ponlo en tu bio o en tus reels. Quien lo abra te deja sus datos y te aparece aquí en Solicitudes; tú decides a quién invitar. Sirve igual en iPhone y Android.</p>
+      <input readonly value="${esc(linkRedes())}" aria-label="Link para redes" style="margin-top:8px">
+      <div class="botones"><button class="boton sec" data-action="copiar-link-redes">Copiar</button>
+        <a class="boton sec" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent('¿Quieres entrenar conmigo? 💪 Déjame tus datos aquí y te escribo: ' + linkRedes())}">Compartir por WhatsApp</a></div>
+    </div>
 
-    <h2>Solicitudes por recomendación ${pend.length ? `<span class="chip fuego">${pend.length}</span>` : ''}</h2>
+    <h2>Solicitudes ${pend.length ? `<span class="chip fuego">${pend.length}</span>` : ''}</h2>
     ${pend.length ? pend.map(s => `
       <div class="tarjeta">
         <div class="fila"><b>${esc(s.nombre)}</b><span class="sub">${fechaBonita(s.creada_en)}</span></div>
-        <div class="sub">📞 ${esc(s.telefono)}${s.referido_por ? ` · 👯 Recomendado por ${esc(portal.cuentas.find(c => c.id === s.referido_por)?.nombre || 'un cliente')}` : ''}</div>
+        <div class="sub">📞 ${esc(s.telefono)}${s.referido_por ? ` · 👯 Recomendado por ${esc(portal.cuentas.find(c => c.id === s.referido_por)?.nombre || 'un cliente')}` : ' · 📣 desde tus redes'}</div>
         ${s.mensaje ? `<p style="margin-top:6px">“${esc(s.mensaje)}”</p>` : ''}
         <div class="botones"><button class="boton mini" data-action="aceptar-solicitud" data-id="${s.id}">Aceptar e invitar</button>
           <a class="boton sec mini" target="_blank" rel="noopener" href="${linkWhats(s.telefono, `Hola ${s.nombre.split(' ')[0]} 👋, soy Erik de EPZSHOCK. ¡Gracias por tu interés!`)}">WhatsApp</a>
@@ -285,7 +292,16 @@ EXTRA.forms['enviar-rutina'] = async d => {
 
 /* ================= Invitaciones y solicitudes ================= */
 function mensajeInvitacion(nombre, codigo) {
-  return `¡Hola ${nombre.split(' ')[0]}! 💪 Te doy acceso a EPZSHOCK, mi app de entrenamiento. Crea tu cuenta aquí (link personal, válido 14 días):\n${Nube.linkInvitacion(codigo)}\n— Erik`;
+  return `¡Hola ${nombre.split(' ')[0]}! 💪 Te doy acceso a EPZSHOCK, mi app de entrenamiento.
+
+1️⃣ Crea tu cuenta con este link personal (válido 14 días):
+${Nube.linkInvitacion(codigo)}
+
+2️⃣ Instálala en tu celular:
+📱 iPhone: ábrelo en Safari → Compartir → «Añadir a pantalla de inicio».
+🤖 Android: ábrelo en Chrome → menú ⋮ → «Instalar aplicación».
+
+— Erik`;
 }
 async function invitar(c, referidoPor) {
   const inv = await Nube.crearInvitacion({ nombre: c.nombre, telefono: c.telefono || null, cliente_local_id: c.id, referido_por: referidoPor || null });
@@ -294,6 +310,9 @@ async function invitar(c, referidoPor) {
 }
 
 /* ================= Retos en la app ================= */
+const linkRedes = () => `${Nube.appUrl()}?unete`;
+EXTRA.acciones['copiar-link-redes'] = () => navigator.clipboard?.writeText(linkRedes()).then(() => aviso('Link copiado ✓'), () => aviso(linkRedes()));
+
 const nombrePublico = n => { const p = String(n).trim().split(/\s+/); return p.length > 1 ? `${p[0]} ${p[1][0]}.` : p[0]; };
 const cuentaDeParticipante = p => (p.clienteId && porId('clientes', p.clienteId)?.cuentaId) || null;
 

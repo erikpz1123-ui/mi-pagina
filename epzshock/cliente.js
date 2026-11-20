@@ -23,6 +23,7 @@ async function arrancar() {
   if (Nube.vieneDeRecuperacion) return pantallaNuevaPassword();
   if (params.get('invitacion')) return pantallaRegistro(params.get('invitacion'));
   if (params.get('ref')) return pantallaSolicitud(params.get('ref'));
+  if (params.has('unete')) return pantallaSolicitud('');
 
   let modo = localStorage.getItem(CLAVE_MODO);
   // Compatibilidad: quien ya usaba la app como entrenador sigue entrando directo
@@ -100,8 +101,8 @@ function pantallaRegistro(codigo) {
 function pantallaSolicitud(ref) {
   modoPublico(`
     <div class="bienvenida"><img src="icon-512.png" alt="" class="bienvenida-logo">
-      <h1>Un amigo te recomendó EPZ<span class="marca-shock">SHOCK</span> 🔥</h1>
-      <p class="sub">Entrenamiento personalizado con Erik Perez, licenciado en Entrenamiento Deportivo. Deja tus datos y Erik te escribe por WhatsApp. Por venir recomendado tienes un <b>descuento de bienvenida</b>.</p></div>
+      <h1>${ref ? 'Un amigo te recomendó ' : 'Entrena con '}EPZ<span class="marca-shock">SHOCK</span> 🔥</h1>
+      <p class="sub">Entrenamiento personalizado con Erik Perez, licenciado en Entrenamiento Deportivo. Deja tus datos y Erik te escribe por WhatsApp${ref ? '. Por venir recomendado tienes un <b>descuento de bienvenida</b>' : ' para empezar'}.</p></div>
     <form data-form="c-solicitud" class="tarjeta" data-ref="${esc(ref)}">
       <label>Tu nombre *</label><input name="nombre" required maxlength="80">
       <label>WhatsApp *</label><input name="telefono" inputmode="tel" required maxlength="20">
@@ -176,8 +177,9 @@ EXTRA.forms['c-registro'] = async (d, form) => {
   try {
     await Nube.registrar({ ...d, codigo: form.dataset.codigo });
     const s = await Nube.entrar(d.email, d.password);
-    cli.perfil = s.perfil; limpiarUrl(); arrancarCliente();
-    aviso('¡Cuenta creada! 💪');
+    cli.perfil = s.perfil; limpiarUrl();
+    if (estaInstalada()) { arrancarCliente(); aviso('¡Cuenta creada! 💪'); }
+    else pantallaInstalar(true);
   } catch (e) { aviso(e.message); boton.disabled = false; }
 };
 EXTRA.forms['c-solicitud'] = async (d, form) => {
@@ -273,12 +275,64 @@ function renderCliente() {
 }
 const sinConexion = () => Nube.enLinea() ? '' : '<div class="tarjeta offline">📴 Sin conexión: ves tus rutinas descargadas. Tus entrenos se guardan y se envían al volver el internet.</div>';
 
+/* ===== Instalación según el teléfono (iPhone / Android) ===== */
+const UA = navigator.userAgent || '';
+const esIOS = /iPhone|iPad|iPod/.test(UA) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const esAndroid = /Android/.test(UA);
+const navegadorDentroDeApp = /Instagram|FBAN|FBAV|TikTok|musical_ly|Line\/|Snapchat/i.test(UA);
+const estaInstalada = () => window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true;
+let avisoInstalar = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); avisoInstalar = e; });
+
+function guiaInstalacion() {
+  if (navegadorDentroDeApp) {
+    return `<div class="tarjeta"><b>Primero ábrela en tu navegador</b>
+      <p class="sub" style="margin-top:6px">Estás dentro de otra app (Instagram, TikTok…). Toca <b>•••</b> o el menú de arriba y elige <b>«Abrir en ${esIOS ? 'Safari' : 'el navegador'}»</b>. Luego sigue los pasos.</p></div>`;
+  }
+  if (esIOS) {
+    return `<div class="tarjeta"><b>📲 Instálala en tu iPhone</b>
+      <ol class="sub pasos"><li>Asegúrate de estar en <b>Safari</b>.</li>
+        <li>Toca <b>Compartir</b> <span aria-hidden="true">⬆︎</span> (o <b>•••</b> → <b>Compartir</b>).</li>
+        <li>Toca <b>«Añadir a pantalla de inicio»</b> y luego <b>Añadir</b>.</li>
+        <li>Abre la app desde el icono <b>EP</b> de tu pantalla.</li></ol></div>`;
+  }
+  return `<div class="tarjeta"><b>📲 Instálala en tu ${esAndroid ? 'Android' : 'teléfono'}</b>
+    ${avisoInstalar ? '<div class="botones"><button class="boton ancho" data-action="c-instalar">Instalar EPZSHOCK</button></div>' : ''}
+    <ol class="sub pasos"><li>En <b>Chrome</b>, toca el menú <b>⋮</b> (arriba a la derecha).</li>
+      <li>Toca <b>«Instalar aplicación»</b> o <b>«Añadir a pantalla de inicio»</b>.</li>
+      <li>Abre la app desde el icono <b>EP</b>.</li></ol></div>`;
+}
+
+function pantallaInstalar(recienRegistrado) {
+  modoPublico(`
+    <div class="bienvenida"><img src="icon-512.png" alt="" class="bienvenida-logo">
+      <h1>${recienRegistrado ? '¡Cuenta creada! 💪' : 'Instala la app'}</h1>
+      <p class="sub">Instálala en tu pantalla de inicio para abrirla como cualquier app y entrenar aunque no tengas internet.</p></div>
+    ${guiaInstalacion()}
+    <div class="botones"><button class="boton sec ancho" data-action="c-continuar">Continuar en el navegador</button></div>`);
+}
+
+EXTRA.acciones['c-instalar'] = async () => {
+  if (!avisoInstalar) return;
+  avisoInstalar.prompt();
+  const r = await avisoInstalar.userChoice.catch(() => null);
+  avisoInstalar = null;
+  if (r?.outcome === 'accepted') aviso('Instalada ✓ Ábrela desde tu pantalla de inicio');
+};
+EXTRA.acciones['c-continuar'] = () => arrancarCliente();
+EXTRA.acciones['c-guia-instalar'] = () => pantallaInstalar(false);
+EXTRA.acciones['c-ocultar-instalar'] = () => { try { localStorage.setItem('epzshock:sin-aviso-instalar', '1'); } catch (e) { /* sin almacenamiento */ } renderCliente(); };
+const mostrarAvisoInstalar = () => { try { return !estaInstalada() && !localStorage.getItem('epzshock:sin-aviso-instalar'); } catch (e) { return !estaInstalada(); } };
+
 function cRutinas() {
   const lista = rutinasVisibles();
   const nombre = (cli.perfil?.nombre || '').split(' ')[0];
   return `
     <h1>Hola, ${esc(nombre)} ⚡</h1>
     <p class="sub">Tus rutinas activas${cli.local.cola.length ? ` · ${cli.local.cola.length} entreno(s) por enviar` : ''}</p>
+    ${mostrarAvisoInstalar() ? `<div class="tarjeta asistente"><div><b>📲 Instala la app</b><p class="sub">Ábrela desde tu pantalla de inicio y entrena sin internet.</p></div>
+      <div class="botones" style="margin:0;flex-direction:column"><button class="boton mini" data-action="c-guia-instalar">Cómo</button>
+      <button class="enlace" style="font-size:.8rem" data-action="c-ocultar-instalar">Ahora no</button></div></div>` : ''}
     ${cli.local.activo ? `<div class="tarjeta" style="border-color:var(--acento)"><div class="fila"><div><span class="chip acento">EN CURSO</span><h3 style="margin-top:6px">${esc(cli.local.activo.nombre)}</h3></div>
       <button class="boton" data-action="c-ver-entreno">Continuar</button></div></div>` : ''}
     ${lista.length ? lista.map(r => {

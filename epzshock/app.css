@@ -295,3 +295,5 @@ details.tarjeta summary::-webkit-details-marker { display: none; }
   background: var(--fondo); padding: 8px 0; }
 .modal .chat-entrada { position: static; }
 .chat-entrada textarea { min-height: 46px; height: 46px; resize: none; }
+
+.pasos { padding-left: 20px; margin-top: 8px; display: grid; gap: 6px; }

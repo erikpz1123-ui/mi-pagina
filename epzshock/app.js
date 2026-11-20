@@ -405,10 +405,11 @@ function vSesion() {
     <h2>Ejercicios</h2>
     ${s.items.length ? s.items.map((it, i) => `
       <div class="tarjeta item-ej">
-        <div class="click" data-action="form-item" data-id="${s.id}" data-i="${i}">
+        <div class="click fila-izq" data-action="form-item" data-id="${s.id}" data-i="${i}">
+          ${htmlDemo(porId('ejercicios', it.ejercicioId)?.demo, 'mini')}<div style="min-width:0">
           <b>${i + 1}. ${esc(nombreEj(it.ejercicioId))}</b>
           <div class="detalle">${esc(it.series)} × ${esc(it.reps)}${it.carga ? ` · ${esc(it.carga)} kg` : ''} · descanso ${esc(it.descanso)}s${it.notas ? ` · ${esc(it.notas)}` : ''}</div>
-        </div>
+        </div></div>
         <div class="mover">
           <button data-action="mover-item" data-id="${s.id}" data-i="${i}" data-dir="-1" aria-label="Subir">↑</button>
           <button data-action="mover-item" data-id="${s.id}" data-i="${i}" data-dir="1" aria-label="Bajar">↓</button>
@@ -650,6 +651,7 @@ function vEntreno() {
         <div class="fila"><b>${ei + 1}. ${esc(e.nombre)}</b>
           <span class="filtros" style="margin:0;flex-wrap:nowrap">${urlSegura(ej?.video) ? `<a class="chip acento" href="${esc(urlSegura(ej.video))}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">▶</a>` : ''}
           ${ej ? `<button class="chip" data-action="ver-ejercicio" data-id="${ej.id}" aria-label="Cómo se hace">ℹ︎ cómo</button>` : ''}</span></div>
+        ${ej?.demo ? `<div style="margin:8px 0">${htmlDemo(ej.demo, 'media')}</div>` : ''}
         <div class="sub">Objetivo: ${esc(e.objetivo)} reps · descanso ${e.descanso}s${e.notas ? ` · ${esc(e.notas)}` : ''}</div>
         <div class="serie-cab"><span>#</span><span>kg</span><span>reps</span><span></span></div>
         ${e.series.map((s, si) => `

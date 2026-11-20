@@ -23,7 +23,7 @@ function estadoInicial() {
     version: 1,
     clientes: [],
     ejercicios: BIBLIOTECA.map(b => ({ id: uid(), video: '', notas: '', ...b })),
-    biblioteca: BIBLIOTECA.length,
+    biblioteca: BIBLIOTECA_VERSION,
     sesiones: [],
     registros: [],
     pagos: [],
@@ -39,7 +39,7 @@ function cargar() {
     if (crudo) {
       const guardados = JSON.parse(crudo);
       const datos = Object.assign(estadoInicial(), guardados);
-      if (guardados.biblioteca === BIBLIOTECA.length) return datos;
+      if (guardados.biblioteca === BIBLIOTECA_VERSION) return datos;
       // Datos de una versión anterior: añade los ejercicios nuevos sin tocar los del usuario
       if (!Array.isArray(guardados.ejercicios)) datos.ejercicios = [];
       sincronizarBiblioteca(datos);
@@ -110,6 +110,16 @@ modal.addEventListener('click', e => { if (e.target === modal) cerrarModal(); })
 
 function datosForm(form) {
   return Object.fromEntries(new FormData(form).entries());
+}
+
+/* ================= Demostración animada de ejercicios ================= */
+// Dos fotos (posición inicial y final) que se alternan, como un GIF pero mucho más ligero.
+function htmlDemo(ruta, tipo = 'grande') {
+  if (!ruta) return '';
+  const r = esc(ruta);
+  if (tipo === 'mini') return `<img class="demo-mini" src="${r}/0.jpg" alt="" loading="lazy">`;
+  return `<div class="demo ${tipo === 'media' ? 'demo-media' : ''}" role="img" aria-label="Demostración del ejercicio">
+    <img src="${r}/0.jpg" alt="" loading="lazy"><img class="demo-b" src="${r}/1.jpg" alt="" loading="lazy"></div>`;
 }
 
 /* ================= Navegación ================= */
@@ -474,8 +484,8 @@ function vEjercicios() {
       <h2>${g} <span class="sub">(${l.length})</span></h2>
       ${l.map(e => `
         <div class="tarjeta click fila" data-action="ver-ejercicio" data-id="${e.id}">
-          <div class="trunc"><b>${esc(e.nombre)}</b>
-            <div class="sub trunc">${(e.tags || []).map(t => ETIQUETAS[t]?.[0] || '').join(' ')} ${esc(e.nivel || '')}${e.musculos ? ' · ' + esc(e.musculos) : ''}</div></div>
+          <div class="fila-izq" style="min-width:0">${htmlDemo(e.demo, 'mini')}<div class="trunc"><b>${esc(e.nombre)}</b>
+            <div class="sub trunc">${(e.tags || []).map(t => ETIQUETAS[t]?.[0] || '').join(' ')} ${esc(e.nivel || '')}${e.musculos ? ' · ' + esc(e.musculos) : ''}</div></div></div>
           ${e.video ? '<span class="chip acento">▶</span>' : ''}
         </div>`).join('')}`).join('') : '<div class="vacio">No hay ejercicios que coincidan.</div>'}
   `;
@@ -486,6 +496,8 @@ function verEjercicio(id) {
   if (!e) return;
   abrirModal(`
     <h2>${esc(e.nombre)}</h2>
+    ${htmlDemo(e.demo)}
+    ${e.demo ? '<p class="aviso-nota" style="margin:4px 0 10px">Foto: Free Exercise DB (dominio público)</p>' : ''}
     <div class="filtros" style="margin-bottom:6px">
       <span class="chip">${esc(e.grupo)}</span>${e.nivel ? `<span class="chip">${esc(e.nivel)}</span>` : ''}
       ${(e.tags || []).map(t => `<span class="chip acento">${ETIQUETAS[t]?.join(' ') || t}</span>`).join('')}

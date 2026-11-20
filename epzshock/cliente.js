@@ -367,7 +367,8 @@ function cRutina() {
     <h2>Ejercicios</h2>
     ${(c.items || []).map((it, i) => `
       <details class="tarjeta">
-        <summary><b>${i + 1}. ${esc(it.nombre)}</b><div class="sub">${esc(it.series)} × ${esc(it.reps)}${it.carga ? ` · ${esc(it.carga)} kg` : ''} · descanso ${esc(it.descanso)}s</div></summary>
+        <summary class="fila-izq">${htmlDemo(it.demo, 'mini')}<div style="min-width:0"><b>${i + 1}. ${esc(it.nombre)}</b><div class="sub">${esc(it.series)} × ${esc(it.reps)}${it.carga ? ` · ${esc(it.carga)} kg` : ''} · descanso ${esc(it.descanso)}s</div></div></summary>
+        ${it.demo ? `<div style="margin-top:10px">${htmlDemo(it.demo)}</div>` : ''}
         ${it.notas ? `<p style="margin-top:8px">📌 ${esc(it.notas)}</p>` : ''}
         ${it.como ? `<p class="sub" style="margin-top:8px"><b>Cómo se hace:</b> ${esc(it.como)}</p>` : ''}
         ${it.clave ? `<p class="sub" style="margin-top:6px"><b>Clave:</b> ${esc(it.clave)}</p>` : ''}
@@ -384,6 +385,7 @@ function cEntreno() {
     <div class="entreno-cab fila"><b class="trunc">${esc(a.nombre)}</b><span class="reloj" id="c-reloj">${duracion((Date.now() - a.inicio) / 1000)}</span></div>
     ${a.ejercicios.map((e, ei) => `
       <div class="tarjeta"><b>${ei + 1}. ${esc(e.nombre)}</b>
+        ${e.demo ? `<div style="margin:8px 0">${htmlDemo(e.demo, 'media')}</div>` : ''}
         <div class="sub">Objetivo: ${esc(e.reps)} reps · descanso ${e.descanso}s</div>
         <div class="serie-cab"><span>#</span><span>kg</span><span>reps</span><span></span></div>
         ${e.series.map((s, si) => `<div class="serie"><span class="n">${si + 1}</span>
@@ -528,6 +530,8 @@ Object.assign(EXTRA.acciones, {
     const r = rutinaPorId(el.dataset.id);
     if (!r) return;
     cli.local.descargas[r.id] = r; guardarCli();
+    // Guarda también las fotos de los ejercicios para verlas sin internet (las cachea el service worker)
+    (r.contenido.items || []).filter(it => it.demo).forEach(it => ['0', '1'].forEach(n => fetch(`${it.demo}/${n}.jpg`).catch(() => {})));
     aviso('⬇ Descargada: disponible sin internet'); renderCliente();
   },
   'c-empezar'(el) {
@@ -535,7 +539,7 @@ Object.assign(EXTRA.acciones, {
     const r = rutinaPorId(el.dataset.id);
     cli.local.activo = {
       id: crypto.randomUUID ? crypto.randomUUID() : uid(), rutina_id: r.id, nombre: r.nombre, inicio: Date.now(), rpe: '', notas: '',
-      ejercicios: (r.contenido.items || []).map(it => ({ nombre: it.nombre, reps: it.reps, descanso: Number(it.descanso) || 0,
+      ejercicios: (r.contenido.items || []).map(it => ({ nombre: it.nombre, demo: it.demo || '', reps: it.reps, descanso: Number(it.descanso) || 0,
         series: Array.from({ length: Number(it.series) || 1 }, () => ({ carga: it.carga || '', reps: '', hecha: false })) })),
     };
     guardarCli(); cli.vista = 'entreno'; renderCliente(); window.scrollTo(0, 0);

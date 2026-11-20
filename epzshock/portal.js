@@ -273,7 +273,7 @@ function contenidoRutina(s) {
     items: s.items.map(it => {
       const e = porId('ejercicios', it.ejercicioId) || {};
       return { nombre: e.nombre || 'Ejercicio', series: it.series, reps: it.reps, carga: it.carga, descanso: it.descanso, notas: it.notas,
-        como: e.como || '', clave: e.clave || '', video: e.video || '', musculos: e.musculos || '' };
+        como: e.como || '', clave: e.clave || '', video: e.video || '', musculos: e.musculos || '', demo: e.demo || '' };
     }),
   };
 }

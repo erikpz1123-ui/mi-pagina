@@ -297,3 +297,12 @@ details.tarjeta summary::-webkit-details-marker { display: none; }
 .chat-entrada textarea { min-height: 46px; height: 46px; resize: none; }
 
 .pasos { padding-left: 20px; margin-top: 8px; display: grid; gap: 6px; }
+
+/* ===== Demostración animada de ejercicios ===== */
+.demo { position: relative; width: 100%; max-width: 100%; aspect-ratio: 3 / 2; border-radius: 12px; overflow: hidden; background: #fff; }
+.demo-media { max-width: 260px; }
+.demo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.demo .demo-b { animation: demo-alterna 2.4s ease-in-out infinite; }
+@keyframes demo-alterna { 0%, 38% { opacity: 0; } 50%, 88% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .demo .demo-b { animation: none; opacity: 0; } }
+.demo-mini { flex: none; width: 56px; height: 42px; border-radius: 8px; object-fit: cover; background: #fff; }

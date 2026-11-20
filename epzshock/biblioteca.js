@@ -308,6 +308,79 @@ const BIBLIOTECA = [
     'Alivia la sensación de rigidez post entreno. No ruedes directo sobre la zona lumbar.'),
 ];
 
+// Fotos de demostración: Free Exercise DB (dominio público, licencia Unlicense) — ejercicios/LICENCIA-free-exercise-db.txt
+const DEMOS = {
+  "Sentadilla trasera": "Barbell_Squat",
+  "Sentadilla goblet": "Goblet_Squat",
+  "Sentadilla con peso corporal": "Bodyweight_Squat",
+  "Prensa de pierna": "Leg_Press",
+  "Zancadas": "Dumbbell_Lunges",
+  "Sentadilla búlgara": "Split_Squat_with_Dumbbells",
+  "Step-up al banco": "Dumbbell_Step_Ups",
+  "Elevación de talones": "Standing_Calf_Raises",
+  "Peso muerto rumano": "Romanian_Deadlift",
+  "Hip thrust": "Barbell_Hip_Thrust",
+  "Puente de glúteo": "Butt_Lift_Bridge",
+  "Puente de glúteo a una pierna": "Single_Leg_Glute_Bridge",
+  "Patada de glúteo en cuadrupedia": "Glute_Kickback",
+  "Peso muerto convencional": "Barbell_Deadlift",
+  "Dominadas": "Pullups",
+  "Remo con barra": "Bent_Over_Barbell_Row",
+  "Remo con mancuerna": "One-Arm_Dumbbell_Row",
+  "Remo invertido en mesa": "Inverted_Row",
+  "Jalón al pecho": "Wide-Grip_Lat_Pulldown",
+  "Superman": "Superman",
+  "Press banca": "Barbell_Bench_Press_-_Medium_Grip",
+  "Press inclinado mancuernas": "Incline_Dumbbell_Press",
+  "Flexiones": "Pushups",
+  "Flexiones diamante": "Push-Ups_-_Close_Triceps_Position",
+  "Press militar": "Standing_Military_Press",
+  "Elevaciones laterales": "Side_Lateral_Raise",
+  "Face pull": "Face_Pull",
+  "Curl de bíceps": "Dumbbell_Bicep_Curl",
+  "Extensión de tríceps en polea": "Triceps_Pushdown",
+  "Fondos": "Dips_-_Triceps_Version",
+  "Fondos en silla": "Bench_Dips",
+  "Plancha": "Plank",
+  "Rueda abdominal": "Ab_Roller",
+  "Pallof press": "Pallof_Press",
+  "Dead bug": "Dead_Bug",
+  "Elevación de piernas tumbado": "Flat_Bench_Lying_Leg_Raise",
+  "Bicicleta estática": "Bicycling_Stationary",
+  "Mountain climbers": "Mountain_Climbers",
+  "Jumping jacks": "Star_Jump",
+  "Saltar la cuerda": "Rope_Jumping",
+  "Sprint 10-20 m": "Wind_Sprints",
+  "Kettlebell swing": "One-Arm_Kettlebell_Swings",
+  "Cargada de potencia": "Power_Clean",
+  "Push press": "Push_Press",
+  "Lanzamiento de balón medicinal al suelo": "One-Arm_Medicine_Ball_Slam",
+  "Lanzamiento de pecho con balón medicinal": "Medicine_Ball_Chest_Pass",
+  "Flexión explosiva": "Plyo_Push-up",
+  "Arrastre de trineo": "Sled_Push",
+  "Salto al cajón": "Front_Box_Jump",
+  "Sentadilla con salto": "Freehand_Jump_Squat",
+  "Salto de longitud a pies juntos": "Standing_Long_Jump",
+  "Saltos laterales": "Lateral_Cone_Hops",
+  "Zancada con salto": "Scissors_Jump",
+  "Saltos a una pierna": "Single-Leg_Hop_Progression",
+  "Drop jump": "Linear_Depth_Jump",
+  "Curl nórdico": "Natural_Glute_Ham_Raise",
+  "Rotación externa de hombro con liga": "External_Rotation_with_Band",
+  "Monster walk con liga": "Monster_Walk",
+  "Estiramiento de flexor de cadera": "Kneeling_Hip_Flexor",
+  "Alfabeto con el tobillo": "Ankle_Circles",
+  "Excéntrico de muñeca": "Palms-Down_Dumbbell_Wrist_Curl_Over_A_Bench",
+  "Gato-camello": "Cat_Stretch",
+  "Liberación con foam roller": "Hamstring-SMR",
+  "Saltos de tobillo (pogos)": "Front_Cone_Hops_or_hurdle_hops",
+  "Excéntrico de gemelo en escalón": "Standing_Calf_Raises",
+};
+
+BIBLIOTECA.forEach(b => { b.demo = DEMOS[b.nombre] ? `ejercicios/${DEMOS[b.nombre]}` : ''; });
+// Sube este número cuando la biblioteca cambie, para que los datos guardados se actualicen
+const BIBLIOTECA_VERSION = 'v2-demos';
+
 function normalizarNombre(n) {
   return n.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
 }
@@ -318,12 +391,12 @@ function sincronizarBiblioteca(datos) {
   BIBLIOTECA.forEach(b => {
     const e = porNombre.get(normalizarNombre(b.nombre));
     if (e) {
-      for (const k of ['tags', 'equipo', 'nivel', 'musculos', 'como', 'clave']) if (e[k] == null || e[k] === '') e[k] = b[k];
+      for (const k of ['tags', 'equipo', 'nivel', 'musculos', 'como', 'clave', 'demo']) if (e[k] == null || e[k] === '') e[k] = b[k];
       if (!e.grupo) e.grupo = b.grupo;
     } else {
       datos.ejercicios.push({ id: uid(), video: '', notas: '', ...b });
     }
   });
-  datos.biblioteca = BIBLIOTECA.length;
+  datos.biblioteca = BIBLIOTECA_VERSION;
   return datos;
 }

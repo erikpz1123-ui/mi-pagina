@@ -1,6 +1,6 @@
 // Asistente IA solo para el ENTRENADOR: crea rutinas, dietas, mensajes y planes de retos.
 import Anthropic from "npm:@anthropic-ai/sdk@1";
-import { admin, cors, cuerpo, error, json, perfilDe, usuarioDe } from "../_shared/comun.ts";
+import { admin, servir, cuerpo, error, json, perfilDe, usuarioDe } from "../_shared/comun.ts";
 import { claude, MODELO, normalizarTurnos, textoDe, type Turno } from "../_shared/claude.ts";
 
 const SISTEMA = `Eres el asistente profesional de Erik Perez, licenciado en Entrenamiento Deportivo y entrenador personal en México, dentro de su app EPZSHOCK.
@@ -10,9 +10,7 @@ Ayudas a Erik a diseñar rutinas (fuerza, hipertrofia, pérdida de grasa, explos
 - Dietas: kcal y macros, comidas con gramos y medidas caseras, lista de la compra cuando aplique.
 - Señala cuándo algo debe validarlo un médico, fisioterapeuta o nutricionista.`;
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (req.method !== "POST") return error("Método no permitido", 405);
+Deno.serve(servir(async (req) => {
 
   const usuario = await usuarioDe(req);
   if (!usuario) return error("Inicia sesión.", 401);
@@ -46,4 +44,4 @@ Deno.serve(async (req) => {
     console.error("Claude", e instanceof Anthropic.APIError ? e.status : "", e);
     return error("No se pudo contactar con Claude.", 502);
   }
-});
+}, { maxBytes: 300_000 }));

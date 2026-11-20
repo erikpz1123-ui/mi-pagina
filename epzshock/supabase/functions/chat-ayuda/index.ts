@@ -1,7 +1,7 @@
 // Chat de ayuda para CLIENTES: Claude responde como asistente de Erik, solo sobre las
 // rutinas que el cliente tiene activas. Límite diario de mensajes. Erik ve toda la conversación.
 import Anthropic from "npm:@anthropic-ai/sdk@1";
-import { admin, cors, cuerpo, error, json, perfilDe, texto, usuarioDe } from "../_shared/comun.ts";
+import { admin, servir, cuerpo, error, json, perfilDe, texto, usuarioDe } from "../_shared/comun.ts";
 import { claude, MODELO, normalizarTurnos, textoDe, type Turno } from "../_shared/claude.ts";
 
 const SISTEMA = `Eres el asistente de EPZSHOCK, la app del entrenador personal Erik Perez (licenciado en Entrenamiento Deportivo). Hablas con uno de sus clientes por el chat de ayuda.
@@ -33,9 +33,7 @@ function contextoCliente(nombre: string, rutinas: { nombre: string; contenido: u
   return lineas.join("\n");
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (req.method !== "POST") return error("Método no permitido", 405);
+Deno.serve(servir(async (req) => {
 
   const usuario = await usuarioDe(req);
   if (!usuario) return error("Inicia sesión para usar el chat.", 401);
@@ -100,4 +98,4 @@ Deno.serve(async (req) => {
   const final = (respuesta ?? "Esa consulta la tiene que ver Erik directamente; ya le avisé. 🙌").replace(/\s*\[ERIK\]\s*$/, "").trim();
   await db.from("mensajes").insert({ cliente_id: perfil.id, autor: "asistente", texto: final.slice(0, 4000), necesita_entrenador: necesitaErik });
   return json({ respuesta: final, necesita_entrenador: necesitaErik });
-});
+}));

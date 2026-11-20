@@ -1,0 +1,15 @@
+# Cabeceras de seguridad para Netlify (se aplican a toda la app)
+# El hash sha256 de script-src es el script de la insignia «Powered by Netlify» (plan gratis); nada más se permite en línea.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-BkKP2XO6WOEc3kXOiLr2ZoY83hamalKjPY9xBcbXVuw='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://wxpyomxibunbprtlzkgs.supabase.co wss://wxpyomxibunbprtlzkgs.supabase.co; font-src 'self'; frame-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; manifest-src 'self'; worker-src 'self'; upgrade-insecure-requests
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+
+# El service worker siempre se revisa para que las actualizaciones lleguen rápido
+/sw.js
+  Cache-Control: no-cache

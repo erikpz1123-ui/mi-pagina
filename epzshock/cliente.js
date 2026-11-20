@@ -372,7 +372,7 @@ function cRutina() {
         ${it.notas ? `<p style="margin-top:8px">📌 ${esc(it.notas)}</p>` : ''}
         ${it.como ? `<p class="sub" style="margin-top:8px"><b>Cómo se hace:</b> ${esc(it.como)}</p>` : ''}
         ${it.clave ? `<p class="sub" style="margin-top:6px"><b>Clave:</b> ${esc(it.clave)}</p>` : ''}
-        ${it.video ? `<a class="boton sec mini" style="margin-top:8px" href="${esc(it.video)}" target="_blank" rel="noopener">▶ Ver vídeo</a>` : ''}
+        ${urlSegura(it.video) ? `<a class="boton sec mini" style="margin-top:8px" href="${esc(urlSegura(it.video))}" target="_blank" rel="noopener noreferrer">▶ Ver vídeo</a>` : ''}
       </details>`).join('')}
   `;
 }

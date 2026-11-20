@@ -112,10 +112,16 @@ function datosForm(form) {
   return Object.fromEntries(new FormData(form).entries());
 }
 
+/* ================= Enlaces seguros ================= */
+// Solo se muestran enlaces web normales (https/http): nunca javascript:, data: ni otros esquemas.
+function urlSegura(u) {
+  try { const x = new URL(String(u || '').trim()); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch (e) { return ''; }
+}
+
 /* ================= Demostración animada de ejercicios ================= */
 // Dos fotos (posición inicial y final) que se alternan, como un GIF pero mucho más ligero.
 function htmlDemo(ruta, tipo = 'grande') {
-  if (!ruta) return '';
+  if (!/^ejercicios\/[\w.()-]+$/.test(ruta || '')) return ''; // solo fotos propias de la app
   const r = esc(ruta);
   if (tipo === 'mini') return `<img class="demo-mini" src="${r}/0.jpg" alt="" loading="lazy">`;
   return `<div class="demo ${tipo === 'media' ? 'demo-media' : ''}" role="img" aria-label="Demostración del ejercicio">
@@ -509,7 +515,7 @@ function verEjercicio(id) {
     ${e.notas ? `<h3 style="margin-top:14px">Mis notas</h3><p>${esc(e.notas)}</p>` : ''}
     ${!e.como && !e.notas ? '<p class="sub">Aún no tiene explicación. Pulsa «Editar» para añadirla.</p>' : ''}
     <div class="botones">
-      ${e.video ? `<a class="boton" href="${esc(e.video)}" target="_blank" rel="noopener">▶ Ver vídeo</a>` : ''}
+      ${urlSegura(e.video) ? `<a class="boton" href="${esc(urlSegura(e.video))}" target="_blank" rel="noopener noreferrer">▶ Ver vídeo</a>` : ''}
       <button class="boton sec" data-action="form-ejercicio" data-id="${e.id}">Editar</button>
       <button class="boton sec" data-action="cerrar">Cerrar</button>
     </div>`);
@@ -641,7 +647,7 @@ function vEntreno() {
       return `
       <div class="tarjeta">
         <div class="fila"><b>${ei + 1}. ${esc(e.nombre)}</b>
-          <span class="filtros" style="margin:0;flex-wrap:nowrap">${ej?.video ? `<a class="chip acento" href="${esc(ej.video)}" target="_blank" rel="noopener" style="text-decoration:none">▶</a>` : ''}
+          <span class="filtros" style="margin:0;flex-wrap:nowrap">${urlSegura(ej?.video) ? `<a class="chip acento" href="${esc(urlSegura(ej.video))}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">▶</a>` : ''}
           ${ej ? `<button class="chip" data-action="ver-ejercicio" data-id="${ej.id}" aria-label="Cómo se hace">ℹ︎ cómo</button>` : ''}</span></div>
         <div class="sub">Objetivo: ${esc(e.objetivo)} reps · descanso ${e.descanso}s${e.notas ? ` · ${esc(e.notas)}` : ''}</div>
         <div class="serie-cab"><span>#</span><span>kg</span><span>reps</span><span></span></div>
@@ -1053,6 +1059,7 @@ document.addEventListener('submit', e => {
     // Evita duplicados (una queja habitual de Stenfit)
     const dup = db.ejercicios.find(x => x.id !== id && normalizarNombre(x.nombre) === normalizarNombre(nombre));
     if (dup) { aviso('Ya existe un ejercicio con ese nombre'); return; }
+    d.video = urlSegura(d.video);
     const tags = Object.keys(ETIQUETAS).filter(k => d['tag-' + k]);
     Object.keys(d).filter(k => k.startsWith('tag-')).forEach(k => delete d[k]);
     if (id) Object.assign(porId('ejercicios', id), d, { nombre, tags });

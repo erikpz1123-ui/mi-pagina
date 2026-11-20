@@ -121,3 +121,24 @@ select pg_temp.como('00000000-0000-0000-0000-00000000000c') \g /dev/null
 select pg_temp.esperar((select count(*) from rutinas) = 1, 'al reactivarlo vuelve a ver su rutina') \g /dev/null
 reset role;
 \echo TODAS LAS PRUEBAS DE SEGURIDAD PASARON
+
+-- ===== Refuerzo de seguridad (migración 2026-11-22) =====
+select pg_temp.como('00000000-0000-0000-0000-00000000000b') \g /dev/null
+do $$ declare i int; begin
+  for i in 1..60 loop insert into mensajes (cliente_id, autor, texto) values (auth.uid(), 'cliente', 'spam ' || i); end loop;
+  begin insert into mensajes (cliente_id, autor, texto) values (auth.uid(), 'cliente', 'uno más');
+    raise exception 'FALLÓ: no hubo límite de mensajes';
+  exception when raise_exception then raise notice 'ok: límite de 60 mensajes al día por cliente'; end;
+  begin insert into entrenos (nombre, datos) values ('gigante', jsonb_build_object('x', repeat('a', 200000)));
+    raise exception 'FALLÓ: aceptó un entreno gigante';
+  exception when check_violation then raise notice 'ok: rechaza entrenos gigantes'; end;
+end $$;
+reset role;
+do $$ begin
+  if has_function_privilege('anon', 'privado.es_entrenador()', 'execute') then raise exception 'FALLÓ: anon puede ejecutar es_entrenador'; end if;
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname in ('es_entrenador', 'es_cliente_activo')) then
+    raise exception 'FALLÓ: funciones de permisos siguen en el esquema público';
+  end if;
+  raise notice 'ok: funciones de permisos fuera de la API pública';
+end $$;
+\echo REFUERZO DE SEGURIDAD VERIFICADO

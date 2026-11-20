@@ -1,9 +1,7 @@
 // Registro de clientes: solo con una invitación válida creada por el entrenador.
-import { admin, cors, cuerpo, error, json, texto } from "../_shared/comun.ts";
+import { admin, servir, cuerpo, error, json, texto } from "../_shared/comun.ts";
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  if (req.method !== "POST") return error("Método no permitido", 405);
+Deno.serve(servir(async (req) => {
 
   const b = await cuerpo(req);
   const codigo = texto(b.codigo, 8, 64);
@@ -40,4 +38,4 @@ Deno.serve(async (req) => {
     return error("Esta invitación ya se usó. Pide a Erik un link nuevo.", 409);
   }
   return json({ ok: true });
-});
+}));

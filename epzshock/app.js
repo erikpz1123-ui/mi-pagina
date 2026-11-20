@@ -266,7 +266,7 @@ function vCliente() {
     <button class="enlace" data-action="tab" data-tab="clientes">← Clientes</button>
     <div class="cabecera" style="margin-top:6px">
       <div class="fila-izq"><div class="avatar" style="width:52px;height:52px;font-size:1.2rem">${esc(iniciales(c.nombre))}</div>
-        <div><h1>${esc(c.nombre)}</h1><p class="sub">${esc(c.objetivo || 'Sin objetivo definido')}</p></div></div>
+        <div><h1>${esc(c.nombre)}</h1><p class="sub">${c.apodo ? `También: ${esc(c.apodo)} · ` : ''}${esc(c.objetivo || 'Sin objetivo definido')}</p></div></div>
     </div>
     ${c.notas ? `<div class="tarjeta sub">⚠︎ ${esc(c.notas)}</div>` : ''}
     <div class="botones">

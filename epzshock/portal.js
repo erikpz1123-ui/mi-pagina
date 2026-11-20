@@ -41,6 +41,11 @@ function vincularCuentas() {
       Nube.actualizarCliente(cta.id, { cliente_local_id: c.id }).catch(() => {});
     }
     if (c.cuentaId !== cta.id || c.appActivo !== cta.activo) { c.cuentaId = cta.id; c.appActivo = cta.activo; cambios = true; }
+    // El nombre que el cliente eligió en su cuenta se muestra en tu app (el anterior queda como apodo)
+    if (cta.nombre && cta.nombre !== c.nombreApp) {
+      if (c.nombre !== cta.nombre) { c.apodo = c.apodo || c.nombre; c.nombre = cta.nombre; }
+      c.nombreApp = cta.nombre; cambios = true;
+    }
     // La antigüedad que registra Erik manda (cuenta para el descuento por lealtad)
     const desde = c.desde || c.creado;
     if (desde && desde !== cta.cliente_desde) { cta.cliente_desde = desde; Nube.actualizarCliente(cta.id, { cliente_desde: desde }).catch(() => {}); }

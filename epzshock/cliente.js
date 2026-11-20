@@ -174,10 +174,10 @@ async function refrescarCliente() {
   cli.cargando = true;
   try {
     await sincronizarCola();
-    const [rutinas, retos, accesos, mensajes, beneficios, entrenos] = await Promise.all([
-      Nube.misRutinas(), Nube.retosPublicos(), Nube.misAccesos(), Nube.mensajes(), Nube.beneficios(), Nube.misEntrenos(),
+    const [rutinas, retos, accesos, mensajes, beneficios, entrenos, ajustes] = await Promise.all([
+      Nube.misRutinas(), Nube.retosPublicos(), Nube.misAccesos(), Nube.mensajes(), Nube.beneficios(), Nube.misEntrenos(), Nube.ajustes(),
     ]);
-    Object.assign(cli, { rutinas, retos, accesos, mensajes, beneficios, entrenos, error: '' });
+    Object.assign(cli, { rutinas, retos, accesos, mensajes, beneficios, entrenos, iaActiva: !!ajustes?.ia_activa, error: '' });
     cli.local.cache = rutinas;
     // Las descargas se actualizan si Erik cambió la rutina; las que ya no están activas se borran
     for (const id of Object.keys(cli.local.descargas)) {
@@ -351,12 +351,13 @@ const CLASE_BURBUJA = { cliente: 'yo', asistente: 'bot', entrenador: 'erik' };
 function cAyuda() {
   return `
     <h1>Ayuda 💬</h1>
-    <p class="sub">Pregunta tus dudas sobre tus rutinas. Responde el asistente de Erik; cuando haga falta, Erik te contesta en persona.</p>
+    <p class="sub">${cli.iaActiva ? 'Pregunta tus dudas sobre tus rutinas. Responde el asistente de Erik; cuando haga falta, Erik te contesta en persona.'
+      : 'Escríbele a Erik tus dudas sobre tus rutinas: te responde aquí en cuanto pueda. Para técnica, abre cada ejercicio de tu rutina.'}</p>
     <div class="chat">
       ${cli.mensajes.length ? cli.mensajes.map(m => `<div class="burbuja ${CLASE_BURBUJA[m.autor]}">
         ${m.autor === 'entrenador' ? '<b>Erik</b><br>' : m.autor === 'asistente' ? '<b>Asistente EPZ</b><br>' : ''}${esc(m.texto).replace(/\n/g, '<br>')}</div>`).join('')
-        : '<div class="vacio">¿Tienes dudas de técnica, series o descansos? Escríbelas aquí.</div>'}
-      ${enviandoChat ? '<div class="burbuja bot escribiendo">Escribiendo…</div>' : ''}
+        : `<div class="vacio">¿Tienes dudas de técnica, series o descansos? Escríbele${cli.iaActiva ? 's aquí' : ' a Erik aquí'}.</div>`}
+      ${enviandoChat && cli.iaActiva ? '<div class="burbuja bot escribiendo">Escribiendo…</div>' : ''}
       <span id="chat-fin"></span>
     </div>
     <form data-form="c-chat" class="chat-entrada">
@@ -371,7 +372,8 @@ EXTRA.forms['c-chat'] = async d => {
   enviandoChat = true; renderCliente();
   try {
     const r = await Nube.enviarChat(texto);
-    cli.mensajes.push({ autor: 'asistente', texto: r.respuesta, creado_en: new Date().toISOString() });
+    if (r.respuesta) cli.mensajes.push({ autor: 'asistente', texto: r.respuesta, creado_en: new Date().toISOString() });
+    else aviso('Enviado a Erik ✓');
   } catch (e) { aviso(e.message); cli.mensajes.pop(); }
   enviandoChat = false; renderCliente();
 };

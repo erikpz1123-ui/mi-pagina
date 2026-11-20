@@ -25,8 +25,9 @@ Está en orden: haz los pasos de arriba abajo.
 ## 1. Base de datos (Supabase, gratis) — 15 min
 
 1. Crea una cuenta en **supabase.com** → *New project* (región: la más cercana a México, p. ej. `us-east`). Guarda la contraseña de la base de datos.
-2. Ve a **SQL Editor** → *New query* → pega todo el contenido de
+2. Ve a **SQL Editor** → *New query* → pega el contenido de
    `supabase/migrations/20261120000000_epzshock.sql` → **Run**.
+   Repite con `supabase/migrations/20261121000000_chat_sin_ia.sql`.
 3. **Authentication → Sign In / Providers → Email**: desactiva **"Allow new users to sign up"**.
    (Los clientes se registran solo con tu invitación: la función `registro` crea la cuenta por ti.)
 4. Crea tu cuenta de entrenador: **Authentication → Users → Add user** (tu correo y una contraseña fuerte, marca *Auto Confirm*).
@@ -37,14 +38,19 @@ Está en orden: haz los pasos de arriba abajo.
    ```
 5. **Settings → API**: copia la **Project URL** y la clave **anon / publishable** (la pública; nunca la `service_role`).
 
-## 2. Funciones del servidor y Claude — 15 min
+## 2. Funciones del servidor — 15 min
 
-1. Crea una clave de API de Claude en **platform.claude.com** (Settings → API keys) y añade saldo.
+La app arranca en **modo costo $0**: la IA de pago está apagada, tus clientes te escriben directo y tú usas
+«Copiar» para pegar en tu Claude normal. **No necesitas clave de Claude para empezar.**
+Cuando quieras activar la IA: crea una clave en **platform.claude.com**, guárdala como secreto (abajo) y enciende
+**⚙︎ Ajustes → 🤖 IA de pago**.
+
+1. (Solo si activas la IA) Crea una clave de API de Claude en **platform.claude.com** (Settings → API keys) y añade saldo.
 2. En tu computadora, dentro de la carpeta `epzshock/`:
    ```bash
    npx supabase login
    npx supabase link --project-ref TU_REFERENCIA      # la referencia está en la URL del proyecto
-   npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+   npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...   # solo si activas la IA
    npx supabase functions deploy
    ```
    Esto sube 5 funciones: `registro`, `solicitud`, `chat-ayuda`, `ia-entrenador` y `eliminar-cuenta`.
@@ -78,7 +84,7 @@ En **⚙︎ Ajustes** verás "App de clientes · nube" y tus descuentos.
 - [ ] Crea un cliente → ficha → **Invitar a la app** → abre el link en otro teléfono y regístrate.
 - [ ] En una sesión → **📱 Activar en la app** → 1 día. El cliente la ve, pulsa **⬇ Descargar**, activa el modo avión y entrena.
 - [ ] Al volver el internet, el entreno aparece en tu historial (📱).
-- [ ] El cliente escribe en **Ayuda**: responde Claude. Escribe "me duele la rodilla": te aparece como "Te necesita".
+- [ ] El cliente escribe en **Ayuda**: te aparece en tu bandeja como "Por responder" y le contestas desde ahí.
 - [ ] Crea un reto → **Publicar** → marca a uno como **Pagó**: él ve el progreso completo; los demás solo el top 5.
 - [ ] El cliente comparte su link de **Invita a un amigo** → te llega la solicitud con "Recomendado por…".
 - [ ] En **Pagos**, los clientes con 3+ meses aparecen con su descuento aplicado.
@@ -131,9 +137,11 @@ En **⚙︎ Ajustes** verás "App de clientes · nube" y tus descuentos.
 | Netlify / GitHub Pages | 0 |
 | Apple Developer | 99 USD / año |
 | Google Play | 25 USD una vez |
-| Claude (chat de ayuda de clientes) | ≈ 0.02 USD por mensaje (≈ 3,000 tokens de entrada y 250 de salida con Claude Opus 5.5) |
+| Claude — **apagado por defecto** (modo $0) | Si lo enciendes: ≈ 0.02 USD por mensaje (≈ 3,000 tokens de entrada y 250 de salida con Claude Opus 5.5) |
 
-Ejemplo: 50 clientes que mandan 2 mensajes al día ≈ 3,000 mensajes al mes ≈ **60 USD/mes**.
+**Arrancando en modo $0, el único gasto obligatorio es el de las tiendas** (y solo si publicas en ellas).
+
+Si enciendes la IA: 50 clientes que mandan 2 mensajes al día ≈ 3,000 mensajes al mes ≈ **60 USD/mes**.
 Para controlarlo tienes el límite de **mensajes por cliente al día** en ⚙︎ Ajustes → Descuentos (por defecto 20).
 Si quieres bajar mucho el costo, el chat de clientes puede usar un modelo más económico: es un cambio de una línea en `supabase/functions/_shared/claude.ts`; pídemelo y lo ajustamos.
 

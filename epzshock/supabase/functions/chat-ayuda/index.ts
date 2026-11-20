@@ -46,8 +46,10 @@ Deno.serve(async (req) => {
   const pregunta = texto((await cuerpo(req)).texto, 1, 1000);
   if (!pregunta) return error("Escribe un mensaje (máximo 1000 caracteres).");
 
+  // Interruptor de costo: con la IA apagada no se llama a Claude (el cliente escribe directo a Erik)
+  const { data: aj } = await db.from("ajustes").select("mensajes_ia_dia, ia_activa").eq("id", 1).single();
+  if (!aj?.ia_activa) return error("El asistente con IA está desactivado. Tu mensaje le llega directo a Erik.", 403);
   // Límite diario de mensajes al asistente
-  const { data: aj } = await db.from("ajustes").select("mensajes_ia_dia").eq("id", 1).single();
   const inicioDia = new Date(); inicioDia.setUTCHours(0, 0, 0, 0);
   const { count } = await db.from("mensajes").select("id", { count: "exact", head: true })
     .eq("cliente_id", perfil.id).eq("autor", "cliente").gte("creado_en", inicioDia.toISOString());

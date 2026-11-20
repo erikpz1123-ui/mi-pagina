@@ -10,7 +10,9 @@ const portal = {
 const portalConectado = () => portal.sesion?.perfil.rol === 'entrenador';
 
 // Los descuentos viven en los datos del entrenador (y viajan en la copia de seguridad)
-const descuentos = () => (db.descuentos = Object.assign({ lealtad: 10, meses: 3, amigo: 10, referidor: 10, iaDia: 20 }, db.descuentos));
+const descuentos = () => (db.descuentos = Object.assign({ lealtad: 10, meses: 3, amigo: 10, referidor: 10, iaDia: 20, iaActiva: false }, db.descuentos));
+// IA de pago (API de Claude): apagada por defecto para operar a costo cero
+const iaActiva = () => portalConectado() && descuentos().iaActiva;
 
 /* ================= Sincronización ================= */
 async function sincronizarPortal({ silencioso = true } = {}) {
@@ -114,9 +116,9 @@ function bloquePortalHoy() {
   return `
     ${pend || urg ? `<div class="tarjeta click reto-cab" data-action="ir-app-clientes" style="margin-top:10px">
       <b>📱 App de clientes</b><div class="sub">${pend ? `${pend} solicitud(es) nuevas` : ''}${pend && urg ? ' · ' : ''}${urg ? `${urg} chat(s) esperan tu respuesta` : ''}</div></div>` : ''}
-    <div class="tarjeta asistente" style="margin-top:10px">
+    ${iaActiva() ? `<div class="tarjeta asistente" style="margin-top:10px">
       <div><b>🤖 Asistente IA</b><p class="sub">Pídele rutinas, dietas o mensajes. Solo tú tienes acceso.</p></div>
-      <button class="boton" data-action="ia-abrir">Abrir</button></div>`;
+      <button class="boton" data-action="ia-abrir">Abrir</button></div>` : ''}`;
 }
 
 /* ================= Clientes → App ================= */
@@ -137,7 +139,7 @@ function conversaciones() {
     return {
       id, ultimo, nombre: portal.cuentas.find(c => c.id === id)?.nombre || 'Cliente',
       noLeidos: ms.filter(m => m.autor !== 'entrenador' && !m.leido_entrenador).length,
-      urgente: ms.some(m => m.necesita_entrenador && !m.leido_entrenador),
+      urgente: ms.some(m => !m.leido_entrenador && (m.necesita_entrenador || (!descuentos().iaActiva && m.autor === 'cliente'))),
     };
   }).sort((a, b) => b.ultimo.creado_en.localeCompare(a.ultimo.creado_en));
 }
@@ -175,7 +177,7 @@ function vAppClientes() {
     <h2>Chats de ayuda</h2>
     ${convs.length ? convs.map(c => `
       <div class="tarjeta click" data-action="abrir-chat" data-id="${c.id}" ${c.urgente ? 'style="border-color:var(--fuego)"' : ''}>
-        <div class="fila"><b>${esc(c.nombre)}</b>${c.urgente ? '<span class="chip fuego">Te necesita</span>' : c.noLeidos ? `<span class="chip acento">${c.noLeidos} nuevos</span>` : ''}</div>
+        <div class="fila"><b>${esc(c.nombre)}</b>${c.urgente ? `<span class="chip fuego">${descuentos().iaActiva ? 'Te necesita' : 'Por responder'}</span>` : c.noLeidos ? `<span class="chip acento">${c.noLeidos} nuevos</span>` : ''}</div>
         <div class="sub trunc">${c.ultimo.autor === 'cliente' ? '' : c.ultimo.autor === 'asistente' ? '🤖 ' : 'Tú: '}${esc(c.ultimo.texto)}</div>
       </div>`).join('') : '<div class="vacio">Aún no hay conversaciones.</div>'}
 
@@ -363,6 +365,11 @@ function bloquePortalAjustes() {
         <div><label>% para quien recomienda</label><input name="referidor" type="number" min="0" max="50" value="${D.referidor}"></div>
         <div><label>Mensajes de chat IA por cliente/día</label><input name="iaDia" type="number" min="0" max="200" value="${D.iaDia}"></div>
       </div>
+      <label class="tarjeta" style="display:flex;gap:10px;align-items:flex-start;margin-top:12px;color:var(--texto)">
+        <input type="checkbox" name="iaActiva" ${D.iaActiva ? 'checked' : ''} style="width:auto;min-height:auto;margin-top:4px">
+        <span><b>🤖 IA de pago (Claude)</b><br><span class="sub">Apagada = costo $0: tus clientes te escriben directo y tú usas «Copiar» para pegar en tu Claude.
+          Encendida = el asistente responde a tus clientes y a ti (≈ 0.02 USD por mensaje, requiere la clave de Claude en Supabase).</span></span>
+      </label>
       <p class="aviso-nota">Los descuentos se suman (máx. 50 %) y se aplican solos en Pagos.</p>
       <div class="botones"><button class="boton sec" type="submit">Guardar descuentos</button></div>
     </form>`;
@@ -376,11 +383,11 @@ EXTRA.forms['portal-entrar'] = async d => {
     Nube.guardarAjustes(ajustesNube()).catch(() => {});
   } catch (e) { aviso(e.message); }
 };
-const ajustesNube = () => { const D = descuentos(); return { descuento_lealtad: D.lealtad, meses_lealtad: D.meses, descuento_amigo: D.amigo, premio_referidor: D.referidor, mensajes_ia_dia: D.iaDia }; };
+const ajustesNube = () => { const D = descuentos(); return { descuento_lealtad: D.lealtad, meses_lealtad: D.meses, descuento_amigo: D.amigo, premio_referidor: D.referidor, mensajes_ia_dia: D.iaDia, ia_activa: !!D.iaActiva }; };
 EXTRA.forms.descuentos = async d => {
   const n = (v, min, max) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)));
-  db.descuentos = { lealtad: n(d.lealtad, 0, 50), meses: n(d.meses, 1, 24), amigo: n(d.amigo, 0, 50), referidor: n(d.referidor, 0, 50), iaDia: n(d.iaDia, 0, 200) };
-  guardar(); aviso('Descuentos guardados ✓');
+  db.descuentos = { lealtad: n(d.lealtad, 0, 50), meses: n(d.meses, 1, 24), amigo: n(d.amigo, 0, 50), referidor: n(d.referidor, 0, 50), iaDia: n(d.iaDia, 0, 200), iaActiva: !!d.iaActiva };
+  guardar(); aviso(db.descuentos.iaActiva ? 'Guardado ✓ · IA de pago encendida' : 'Guardado ✓ · modo costo $0');
   if (portalConectado()) { try { await Nube.guardarAjustes(ajustesNube()); } catch (e) { aviso(e.message); } }
 };
 
@@ -467,7 +474,7 @@ Object.assign(EXTRA.acciones, {
     if (p.pagado && !cuentaDeParticipante(p)) aviso(`${p.nombre.split(' ')[0]} no tiene la app: invítalo para que vea su progreso`);
     publicarRetoSiAplica(r);
   },
-  'ia-abrir'() { if (!portalConectado()) { aviso('Conéctate como entrenador en ⚙︎ Ajustes'); return; } vIA(); },
+  'ia-abrir'() { if (!iaActiva()) { aviso('Activa la IA de pago en ⚙︎ Ajustes'); return; } vIA(); },
   'ia-nuevo'() { portal.ia = []; vIA(); },
   'ia-copiar'() { const u = [...portal.ia].reverse().find(m => m.role === 'assistant'); navigator.clipboard?.writeText(u?.content || '').then(() => aviso('Copiado ✓')); },
   'ia-enviar-prompt'() { const t = $('#prompt-claude').value; vIA(); preguntarIA(t); },

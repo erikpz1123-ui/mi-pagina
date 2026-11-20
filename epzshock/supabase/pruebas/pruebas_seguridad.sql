@@ -66,6 +66,20 @@ do $$ begin
     raise exception 'FALLÓ: Ana usó la función del entrenador';
   exception when insufficient_privilege then raise notice 'ok: Ana no puede usar funciones del entrenador'; end;
 end $$;
+insert into mensajes (cliente_id, autor, texto) values (auth.uid(), 'cliente', 'Hola Erik, duda con la sentadilla');
+select pg_temp.esperar((select count(*) from mensajes where autor = 'cliente') = 1, 'Ana escribe directo a Erik (chat sin IA)') \g /dev/null
+do $$ begin
+  begin insert into mensajes (cliente_id, autor, texto) values ('00000000-0000-0000-0000-00000000000b','cliente','suplantando a Luis');
+    raise exception 'FALLÓ: Ana escribió en el chat de Luis';
+  exception when insufficient_privilege then raise notice 'ok: Ana no puede escribir en el chat de otro'; end;
+  begin insert into mensajes (cliente_id, autor, texto, leido_entrenador) values (auth.uid(),'cliente','marcado leído', true);
+    raise exception 'FALLÓ: Ana marcó su mensaje como leído';
+  exception when insufficient_privilege then raise notice 'ok: Ana no puede marcar sus mensajes como leídos'; end;
+  begin update ajustes set ia_activa = true; 
+    if (select ia_activa from ajustes) then raise exception 'FALLÓ: Ana activó la IA'; end if;
+    raise notice 'ok: Ana no puede activar la IA de pago';
+  end;
+end $$;
 select pg_temp.esperar((select count(*) from rutinas) = 1, 'después de todo, Ana sigue viendo 1 rutina') \g /dev/null
 reset role;
 

@@ -173,8 +173,8 @@ function mostrarPrompt(titulo, texto) {
     <p class="sub">Copia este texto y pégalo en Claude (app o claude.ai). Luego pasa la respuesta a Epzshock.</p>
     <textarea id="prompt-claude" class="prompt-claude">${esc(texto)}</textarea>
     <div class="botones">
-      ${portalConectado() ? '<button class="boton" data-action="ia-enviar-prompt">🤖 Enviar a Claude</button>' : ''}
-      <button class="boton ${portalConectado() ? 'sec' : ''}" data-action="copiar-prompt">Copiar</button>
+      ${iaActiva() ? '<button class="boton" data-action="ia-enviar-prompt">🤖 Enviar a Claude</button>' : ''}
+      <button class="boton ${iaActiva() ? 'sec' : ''}" data-action="copiar-prompt">Copiar</button>
       <a class="boton sec" href="https://claude.ai/new" target="_blank" rel="noopener">Abrir Claude</a>
       <button class="boton sec" data-action="cerrar">Cerrar</button>
     </div>`);

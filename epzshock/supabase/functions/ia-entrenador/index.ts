@@ -18,6 +18,8 @@ Deno.serve(async (req) => {
   if (!usuario) return error("Inicia sesión.", 401);
   const perfil = await perfilDe(admin(), usuario.id);
   if (perfil?.rol !== "entrenador") return error("El asistente IA es solo para el entrenador.", 403);
+  const { data: aj } = await admin().from("ajustes").select("ia_activa").eq("id", 1).single();
+  if (!aj?.ia_activa) return error("La IA de pago está desactivada. Actívala en Ajustes o usa «Copiar» para pegarlo en tu Claude.", 403);
 
   const b = await cuerpo(req);
   const entrada = Array.isArray(b.mensajes) ? b.mensajes.slice(-30) : [];

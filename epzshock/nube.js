@@ -57,7 +57,13 @@ const Nube = (() => {
         if (clienteId) q = q.eq('cliente_id', clienteId);
         return ok(await q.limit(300));
       },
-      enviarChat: texto => fn('chat-ayuda', { texto }),
+      async enviarChat(texto) {
+        const { data } = await sb.from('ajustes').select('ia_activa').eq('id', 1).single();
+        if (data?.ia_activa) return fn('chat-ayuda', { texto });
+        const { data: u } = await sb.auth.getUser();
+        ok(await sb.from('mensajes').insert({ cliente_id: u.user.id, autor: 'cliente', texto: String(texto).trim().slice(0, 1000) }));
+        return { respuesta: null };
+      },
       async beneficios() { return ok(await sb.rpc('mis_beneficios')); },
       async actualizarPerfil(id, d) { ok(await sb.from('perfiles').update(d).eq('id', id)); },
       async eliminarCuenta() { await fn('eliminar-cuenta', {}); await sb.auth.signOut(); },
@@ -107,7 +113,7 @@ const Nube = (() => {
         perfiles: [{ id: erik, rol: 'entrenador', nombre: 'Erik Perez', telefono: '', cliente_desde: ahora().slice(0, 10), codigo_referido: 'ERIK0001', referido_por: null, cliente_local_id: null, activo: true, creado_en: ahora() }],
         invitaciones: [], solicitudes: [], rutinas: [], entrenos: [], mensajes: [],
         retos_publicos: [], retos_detalle: [], reto_accesos: [],
-        ajustes: { id: 1, descuento_lealtad: 10, meses_lealtad: 3, descuento_amigo: 10, premio_referidor: 10, mensajes_ia_dia: 20 },
+        ajustes: { id: 1, descuento_lealtad: 10, meses_lealtad: 3, descuento_amigo: 10, premio_referidor: 10, mensajes_ia_dia: 20, ia_activa: false },
       };
     }
     const leer = () => { try { return JSON.parse(localStorage.getItem(CLAVE)) || inicial(); } catch (e) { return inicial(); } };
@@ -178,10 +184,11 @@ const Nube = (() => {
         texto = String(texto || '').trim().slice(0, 1000);
         if (!texto) throw new Error('Escribe un mensaje.');
         const hoy = ahora().slice(0, 10);
-        if (s.mensajes.filter(m => m.cliente_id === p.id && m.autor === 'cliente' && m.creado_en.startsWith(hoy)).length >= s.ajustes.mensajes_ia_dia) {
+        if (s.ajustes.ia_activa && s.mensajes.filter(m => m.cliente_id === p.id && m.autor === 'cliente' && m.creado_en.startsWith(hoy)).length >= s.ajustes.mensajes_ia_dia) {
           throw new Error('Llegaste al límite de mensajes de hoy. Mañana seguimos. 💪');
         }
         s.mensajes.push({ id: Date.now(), cliente_id: p.id, autor: 'cliente', texto, necesita_entrenador: false, leido_entrenador: false, creado_en: ahora() });
+        if (!s.ajustes.ia_activa) return { respuesta: null }; // sin IA: le llega directo a Erik
         const rutinas = s.rutinas.filter(r => r.cliente_id === p.id && vigente(r)).map(r => r.nombre);
         const necesita = /dolor|duele|lesi|pago|precio|cobr|cambi/i.test(texto);
         const respuesta = necesita
@@ -242,7 +249,7 @@ const Nube = (() => {
         s.retos_detalle = s.retos_detalle.filter(r => r.reto_id !== id);
         s.reto_accesos = s.reto_accesos.filter(a => a.reto_id !== id);
       }),
-      iaEntrenador: () => op(() => { exigir('entrenador'); return { respuesta: '🤖 (Modo demo) Conecta la nube y la clave de Claude para que el asistente IA responda aquí con rutinas y dietas completas.' }; }),
+      iaEntrenador: () => op(() => { exigir('entrenador'); if (!s.ajustes.ia_activa) throw new Error('La IA de pago está desactivada.'); return { respuesta: '🤖 (Modo demo) Conecta la nube y la clave de Claude para que el asistente IA responda aquí con rutinas y dietas completas.' }; }),
       ajustes: () => op(() => { exigir(); return s.ajustes; }),
       guardarAjustes: d => op(() => { exigir('entrenador'); Object.assign(s.ajustes, d); }),
     };

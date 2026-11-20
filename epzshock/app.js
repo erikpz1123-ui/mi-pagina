@@ -396,6 +396,7 @@ function vSesion() {
     ${s.notas ? `<p class="sub">${esc(s.notas)}</p>` : ''}
     <div class="botones">
       <button class="boton" data-action="nuevo-entreno" data-sesion="${s.id}">⚡ Entrenar</button>
+      <button class="boton sec" data-action="previa-sesion" data-id="${s.id}">👁 Ver como cliente</button>
       <button class="boton sec" data-action="enviar-rutina-app" data-id="${s.id}">📱 Activar en la app</button>
       <button class="boton sec" data-action="compartir-sesion" data-id="${s.id}">Enviar por WhatsApp</button>
       <button class="boton sec" data-action="editar-sesion" data-id="${s.id}">Renombrar</button>

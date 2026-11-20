@@ -244,7 +244,8 @@ function bloqueAppCliente(c) {
         <button class="boton mini" data-action="enviar-rutina-app" data-cliente="${c.id}">+ Activar rutina</button></div>
       ${rutinas === undefined ? '<p class="sub">Cargando…</p>' : vigentes.length ? vigentes.map(r => `
         <div class="fila" style="margin-top:8px"><div class="trunc">${esc(r.nombre)}<div class="sub">⏳ hasta ${fechaBonita(r.activa_hasta)} (${quedan(r.activa_hasta)})</div></div>
-          <button class="boton sec mini" data-action="quitar-rutina-app" data-id="${r.id}" data-cliente="${c.id}">Quitar</button></div>`).join('')
+          <div class="botones" style="margin:0;flex-wrap:nowrap"><button class="boton mini" data-action="ver-rutina-app" data-id="${r.id}" data-cliente="${c.id}">👁 Ver</button>
+          <button class="boton sec mini" data-action="quitar-rutina-app" data-id="${r.id}" data-cliente="${c.id}">Quitar</button></div></div>`).join('')
         : '<p class="sub" style="margin-top:6px">Sin rutinas activas en la app.</p>'}
     </div>`;
 }
@@ -293,6 +294,39 @@ EXTRA.forms['enviar-rutina'] = async d => {
     delete portal.rutinasDe[c.cuentaId];
     render();
   } catch (e) { aviso(e.message); }
+};
+
+/* ================= Vista previa: la rutina tal como la ve el cliente ================= */
+function previaRutina(nombre, contenido, hasta) {
+  const items = contenido?.items || [];
+  abrirModal(`
+    <p class="chip acento" style="margin-bottom:8px">👁 Así la ve tu cliente</p>
+    <h2 style="margin-bottom:2px">${esc(nombre)}</h2>
+    ${hasta ? `<p class="sub">Disponible ${quedan(hasta)} más · hasta ${fechaBonita(hasta)}</p>` : '<p class="sub">Vista previa antes de activarla</p>'}
+    ${contenido?.notas ? `<div class="tarjeta sub" style="margin-top:10px">${esc(contenido.notas)}</div>` : ''}
+    <div style="margin-top:10px">${items.map((it, i) => {
+      const demo = demoDe(it), video = urlSegura(it.video);
+      return `<details class="tarjeta" ${i === 0 ? 'open' : ''}>
+        <summary class="fila-izq">${htmlDemo(demo, 'mini')}<div style="min-width:0"><b>${i + 1}. ${esc(it.nombre)}</b>
+          <div class="sub">${esc(it.series)} × ${esc(it.reps)}${it.carga ? ` · ${esc(it.carga)} kg` : ''} · descanso ${esc(it.descanso)}s</div></div></summary>
+        ${demo ? `<div style="margin-top:10px">${htmlDemo(demo)}</div>` : '<p class="sub" style="margin-top:8px">Sin animación para este ejercicio.</p>'}
+        ${it.notas ? `<p style="margin-top:8px">📌 ${esc(it.notas)}</p>` : ''}
+        ${it.como ? `<p class="sub" style="margin-top:8px"><b>Cómo se hace:</b> ${esc(it.como)}</p>` : ''}
+        ${it.clave ? `<p class="sub" style="margin-top:6px"><b>Clave:</b> ${esc(it.clave)}</p>` : ''}
+        ${video ? `<a class="boton sec mini" style="margin-top:8px" href="${esc(video)}" target="_blank" rel="noopener noreferrer">▶ Ver vídeo</a>` : ''}
+      </details>`;
+    }).join('') || '<div class="vacio">Esta rutina no tiene ejercicios.</div>'}</div>
+    <div class="botones"><button class="boton sec" data-action="cerrar">Cerrar</button></div>`);
+}
+
+EXTRA.acciones['ver-rutina-app'] = el => {
+  const c = porId('clientes', el.dataset.cliente);
+  const r = (portal.rutinasDe[c?.cuentaId] || []).find(x => x.id === el.dataset.id);
+  if (r) previaRutina(r.nombre, r.contenido, r.activa_hasta); else aviso('No encontré la rutina. Recarga e inténtalo de nuevo.');
+};
+EXTRA.acciones['previa-sesion'] = el => {
+  const s = porId('sesiones', el.dataset.id);
+  if (s) previaRutina(s.nombre, contenidoRutina(s));
 };
 
 /* ================= Invitaciones y solicitudes ================= */

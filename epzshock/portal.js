@@ -338,7 +338,7 @@ async function cargarServicios() {
   try {
     const [servicios, ajustes] = await Promise.all([Nube.servicios(), Nube.ajustes()]);
     portal.servicios = servicios;
-    portal.pago = { clabe: ajustes?.clabe || '', banco: ajustes?.banco || '', titular: ajustes?.titular || '' };
+    portal.pago = { clabe: ajustes?.clabe || '', banco: ajustes?.banco || '', titular: ajustes?.titular || '', correo: ajustes?.correo || '' };
   } catch (e) { portal.servicios = []; }
   if (ruta.vista === 'servicios' || ruta.tab === 'pagos') { if (!modal.open) render(); }
 }
@@ -371,6 +371,7 @@ function vServicios() {
         <div><label for="pg-banco">Banco</label><input id="pg-banco" name="banco" maxlength="40" value="${esc(portal.pago.banco)}" placeholder="BBVA"></div>
         <div><label for="pg-titular">Titular</label><input id="pg-titular" name="titular" maxlength="80" value="${esc(portal.pago.titular)}"></div>
       </div>
+      <label for="pg-correo">Correo para recibir comprobantes</label><input id="pg-correo" name="correo" type="email" inputmode="email" maxlength="120" value="${esc(portal.pago.correo)}" placeholder="tucorreo@gmail.com">
       <div class="botones"><button class="boton sec" type="submit">Guardar cuenta</button></div>
     </form>
     <div class="botones"><button class="boton sec" data-action="previa-planes" ${lista.length ? '' : 'disabled'}>👁 Ver como cliente</button></div>
@@ -430,8 +431,10 @@ EXTRA.vistas.servicios = vServicios;
 EXTRA.forms['datos-pago'] = async d => {
   const clabe = String(d.clabe || '').replace(/\D/g, '');
   if (clabe && !clabeValida(clabe)) return aviso('Esa CLABE no es válida: revisa los 18 dígitos.');
-  const datos = { clabe: clabe || null, banco: String(d.banco || '').trim() || null, titular: String(d.titular || '').trim() || null };
-  try { await Nube.guardarAjustes(datos); portal.pago = { clabe, banco: datos.banco || '', titular: datos.titular || '' }; aviso(clabe ? 'Cuenta guardada ✓ Ya pueden comprarte en la app' : 'Cuenta borrada: la compra en la app queda desactivada'); render(); }
+  const correo = String(d.correo || '').trim().toLowerCase();
+  if (correo && !/^[^@\s<>"]+@[^@\s<>"]+\.[a-z]{2,}$/i.test(correo)) return aviso('Revisa el correo.');
+  const datos = { clabe: clabe || null, banco: String(d.banco || '').trim() || null, titular: String(d.titular || '').trim() || null, correo: correo || null };
+  try { await Nube.guardarAjustes(datos); portal.pago = { clabe, banco: datos.banco || '', titular: datos.titular || '', correo }; aviso(clabe ? 'Cuenta guardada ✓ Ya pueden comprarte en la app' : 'Cuenta borrada: la compra en la app queda desactivada'); render(); }
   catch (e) { aviso(e.message); }
 };
 EXTRA.forms.servicio = async (d, form) => {

@@ -280,7 +280,7 @@ async function refrescarCliente() {
     const [rutinas, retos, accesos, mensajes, beneficios, entrenos, ajustes, servicios, compras, cupos] = await Promise.all([
       Nube.misRutinas(), Nube.retosPublicos(), Nube.misAccesos(), Nube.mensajes(), Nube.beneficios(), Nube.misEntrenos(), Nube.ajustes(), Nube.servicios(), Nube.misCompras(), Nube.cupos(),
     ]);
-    Object.assign(cli, { rutinas, retos, accesos, mensajes, beneficios, entrenos, servicios, compras, cupos: Object.fromEntries((cupos || []).map(x => [x.servicio_id, Number(x.ocupados)])), pago: { clabe: ajustes?.clabe, banco: ajustes?.banco, titular: ajustes?.titular }, whatsappErik: ajustes?.whatsapp || '', iaActiva: !!ajustes?.ia_activa, error: '' });
+    Object.assign(cli, { rutinas, retos, accesos, mensajes, beneficios, entrenos, servicios, compras, cupos: Object.fromEntries((cupos || []).map(x => [x.servicio_id, Number(x.ocupados)])), pago: { clabe: ajustes?.clabe, banco: ajustes?.banco, titular: ajustes?.titular, correo: ajustes?.correo }, whatsappErik: ajustes?.whatsapp || '', iaActiva: !!ajustes?.ia_activa, error: '' });
     cli.local.cache = rutinas;
     // Las descargas se actualizan si Erik cambió la rutina; las que ya no están activas se borran
     for (const id of Object.keys(cli.local.descargas)) {
@@ -393,11 +393,25 @@ function cPlanes() {
       const [cls, txt] = ESTADO_COMPRA[c.estado] || ['', c.estado];
       return `<div class="tarjeta"><div class="fila"><b class="trunc">${esc(c.servicio_nombre)}</b><span class="chip ${cls}">${txt}</span></div>
         <div class="sub">${esc(dinero(c.monto))} MXN · referencia <b>${esc(c.referencia)}</b> · ${fechaBonita(c.creada_en)}</div>
-        ${c.estado === 'pendiente' ? `<div class="botones"><button class="boton mini" data-action="c-ver-pago" data-id="${esc(c.id)}">Ver datos de pago</button></div>` : ''}</div>`;
+        ${c.estado === 'pendiente' ? `<div class="botones"><button class="boton mini" data-action="c-ver-pago" data-id="${esc(c.id)}">Ver datos de pago</button></div>` : ''}
+        ${c.estado === 'avisado' && linkCorreoComprobante(c) ? `<div class="botones"><a class="boton sec mini" href="${esc(linkCorreoComprobante(c))}">📧 Enviar comprobante</a></div>` : ''}</div>`;
     }).join('')}` : ''}
     ${lista.length ? htmlPlanes(lista, 'cliente', cli.cupos || {}) : `<div class="vacio">${Nube.enLinea() ? 'Pronto verás aquí los planes disponibles.' : 'Conéctate a internet para ver los planes.'}</div>`}`;
 }
 
+// Abre el correo del cliente ya dirigido a Erik; el cliente solo adjunta la captura
+function linkCorreoComprobante(c) {
+  const correo = cli.pago?.correo;
+  if (!correo || !/^[^@\s<>"?&]+@[^@\s<>"?&]+$/.test(correo)) return '';
+  const asunto = `Comprobante ${c.referencia} · ${c.servicio_nombre}`;
+  const cuerpo = `Hola Erik:\n\nTe envío el comprobante de mi transferencia.\n\nServicio: ${c.servicio_nombre}\nMonto: ${dinero(c.monto)} MXN\nReferencia: ${c.referencia}\nNombre: ${cli.perfil?.nombre || ''}\n\n(Adjunta aquí la captura de tu transferencia)`;
+  return `mailto:${correo}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
+}
+const botonesComprobante = c => {
+  const mail = linkCorreoComprobante(c);
+  return `${mail ? `<a class="boton ancho" href="${esc(mail)}">📧 Enviar comprobante por correo</a>` : ''}
+    ${cli.whatsappErik ? `<a class="boton sec ancho" target="_blank" rel="noopener noreferrer" href="${linkWhats(cli.whatsappErik, `Hola Erik, te envío mi comprobante de ${c.servicio_nombre} (${dinero(c.monto)} MXN) · referencia ${c.referencia}`)}">Enviar comprobante por WhatsApp</a>` : ''}`;
+};
 const formatoClabe = c => String(c || '').replace(/^(\d{3})(\d{3})(\d{11})(\d)$/, '$1 $2 $3 $4');
 function modalPago(c) {
   const p = cli.pago || {};
@@ -416,7 +430,6 @@ function modalPago(c) {
     <p class="aviso-nota">Cuando Erik vea tu pago en su cuenta lo confirma y te activa el servicio. Si algo no cuadra, te escribe por el chat.</p>
     <div class="botones">
       <button class="boton ancho" data-action="c-ya-transferi" data-id="${esc(c.id)}">Ya hice la transferencia</button>
-      ${cli.whatsappErik ? `<a class="boton sec ancho" target="_blank" rel="noopener noreferrer" href="${linkWhats(cli.whatsappErik, `Hola Erik, te envío mi comprobante de ${c.servicio_nombre} (${dinero(c.monto)} MXN) · referencia ${c.referencia}`)}">Enviar comprobante por WhatsApp</a>` : ''}
       <button class="boton sec ancho" data-action="cerrar">La hago después</button>
     </div>`);
 }
@@ -451,7 +464,10 @@ EXTRA.acciones['c-ya-transferi'] = async el => {
     await Nube.avisarTransferencia(c.id);
     c.estado = 'avisado';
     await Nube.pedirServicio(`💸 Ya transferí ${dinero(c.monto)} MXN por ${c.servicio_nombre} · referencia ${c.referencia}`).catch(() => {});
-    cerrarModal(); aviso('¡Gracias! Erik confirmará tu pago pronto ✓'); renderCliente();
+    renderCliente();
+    abrirModal(`<h2>¡Gracias! 🙌</h2>
+      <p class="sub">Último paso: manda la captura de tu transferencia a Erik para que la confirme más rápido.</p>
+      <div class="botones">${botonesComprobante(c)}<button class="boton sec ancho" data-action="cerrar">Listo</button></div>`);
   } catch (e) { aviso(e.message); }
 };
 

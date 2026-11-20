@@ -1,0 +1,3 @@
+# Archivos temporales de la CLI de Supabase
+.temp/
+.branches/

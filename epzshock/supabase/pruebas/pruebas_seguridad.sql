@@ -99,11 +99,19 @@ select pg_temp.esperar((select count(*) from retos_publicos) = 0, 'cliente desac
 reset role;
 
 -- Anónimo (sin sesión)
-set role anon;
-select pg_temp.esperar((select count(*) from perfiles) = 0, 'anónimo no ve perfiles') \g /dev/null
-select pg_temp.esperar((select count(*) from rutinas) = 0, 'anónimo no ve rutinas') \g /dev/null
-select pg_temp.esperar((select count(*) from retos_publicos) = 0, 'anónimo no ve retos') \g /dev/null
-reset role;
+-- (vale tanto "0 filas" como "acceso denegado": las dos cosas impiden ver datos)
+create function pg_temp.filas_anon(tabla text) returns bigint language plpgsql as $$
+declare n bigint;
+begin
+  execute 'set local role anon';
+  begin execute format('select count(*) from public.%I', tabla) into n;
+  exception when insufficient_privilege then n := 0; end;
+  execute 'reset role';
+  return n;
+end $$;
+select pg_temp.esperar(pg_temp.filas_anon('perfiles') = 0, 'anónimo no ve perfiles') \g /dev/null
+select pg_temp.esperar(pg_temp.filas_anon('rutinas') = 0, 'anónimo no ve rutinas') \g /dev/null
+select pg_temp.esperar(pg_temp.filas_anon('retos_publicos') = 0, 'anónimo no ve retos') \g /dev/null
 
 -- El entrenador reactiva y ajusta
 select pg_temp.como('00000000-0000-0000-0000-00000000000e') \g /dev/null

@@ -218,3 +218,14 @@ revoke execute on function public.entrenador_actualizar_cliente(uuid, boolean, d
 revoke execute on function public.mis_beneficios() from public, anon;
 grant execute on function public.entrenador_actualizar_cliente(uuid, boolean, date, text) to authenticated;
 grant execute on function public.mis_beneficios() to authenticated;
+
+/* ============ Permisos explícitos (no dependen de la configuración del proyecto) ============ */
+-- RLS decide qué filas ve cada quien; estos permisos solo abren las tablas a usuarios con sesión.
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on
+  public.ajustes, public.invitaciones, public.solicitudes, public.rutinas, public.entrenos,
+  public.mensajes, public.retos_publicos, public.retos_detalle, public.reto_accesos
+  to authenticated;
+grant select on public.perfiles to authenticated;
+grant update (nombre, telefono) on public.perfiles to authenticated;
+grant usage, select on all sequences in schema public to authenticated;

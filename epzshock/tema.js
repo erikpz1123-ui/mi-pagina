@@ -109,6 +109,7 @@ function bloqueTema() {
 document.addEventListener('DOMContentLoaded', () => {
   EXTRA.acciones.tema = el => {
     guardarTema({ [el.dataset.grupo]: el.dataset.valor });
+    if (document.body.classList.contains('modo-cliente')) return renderCliente();
     vAjustes(); // repinta el modal de ajustes
     render();
   };

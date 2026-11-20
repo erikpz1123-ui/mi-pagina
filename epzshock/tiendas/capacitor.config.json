@@ -1,0 +1,8 @@
+{
+  "appId": "mx.epzshock.app",
+  "appName": "EPZSHOCK",
+  "webDir": "www",
+  "backgroundColor": "#0a0a0c",
+  "ios": { "contentInset": "never" },
+  "android": { "allowMixedContent": false }
+}

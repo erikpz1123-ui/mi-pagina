@@ -1,0 +1,15 @@
+# Configuración para la CLI de Supabase (supabase link / functions deploy / db push).
+project_id = "epzshock"
+
+# Las funciones verifican la sesión por sí mismas (o son públicas a propósito: registro y solicitud),
+# así funcionan tanto con las claves anon (JWT) como con las nuevas claves "publishable".
+[functions.registro]
+verify_jwt = false
+[functions.solicitud]
+verify_jwt = false
+[functions.chat-ayuda]
+verify_jwt = false
+[functions.ia-entrenador]
+verify_jwt = false
+[functions.eliminar-cuenta]
+verify_jwt = false

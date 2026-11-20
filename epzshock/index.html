@@ -11,14 +11,14 @@
   <meta name="apple-mobile-web-app-title" content="EPZ">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="app.css">
   <script src="tema.js"></script>
 </head>
 <body>
   <header class="barra">
     <div class="marca">
-      <span class="logo" aria-hidden="true">⚡</span>
+      <span class="logo" aria-hidden="true"><svg viewBox="0 0 1024 1024" width="20" height="20"><path fill="currentColor" d="M586 196 330 560h170l-62 268 256-372H520l66-260z"/></svg></span>
       <span class="marca-texto">EPZ<span class="marca-shock">SHOCK</span></span>
     </div>
     <button class="icono-btn" data-action="ajustes" aria-label="Ajustes y copia de seguridad">⚙︎</button>
@@ -38,10 +38,15 @@
   <dialog id="modal" class="modal"><div id="modal-cuerpo"></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <script src="config.js"></script>
+  <script src="vendor/supabase-2.119.1.js"></script>
   <script src="biblioteca.js"></script>
   <script src="app.js"></script>
   <script src="asistente.js"></script>
   <script src="dieta.js"></script>
   <script src="retos.js"></script>
+  <script src="nube.js"></script>
+  <script src="cliente.js"></script>
+  <script src="portal.js"></script>
 </body>
 </html>

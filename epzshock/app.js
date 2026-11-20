@@ -166,6 +166,7 @@ function vHoy() {
     </div>
 
     <button class="boton ancho" data-action="nuevo-entreno">⚡ Empezar entreno</button>
+    ${bloquePortalHoy()}
     ${typeof bloqueRetosHoy === 'function' ? bloqueRetosHoy() : ''}
 
     ${pendientes.length ? `
@@ -199,6 +200,7 @@ function vClientes() {
     .filter(c => c.nombre.toLowerCase().includes(filtroClientes.toLowerCase()))
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
   return `
+    ${segmentoClientes('clientes')}
     <div class="cabecera"><div><h1>Clientes</h1><p class="sub">${db.clientes.length} en total</p></div>
       <button class="boton" data-action="form-cliente">+ Nuevo</button></div>
     <input class="buscar" type="search" placeholder="Buscar cliente…" value="${esc(filtroClientes)}" data-input="filtro-clientes">
@@ -224,6 +226,7 @@ function formCliente(c = {}) {
         <div><label>Cuota mensual</label><input name="cuota" type="number" min="0" step="0.01" value="${esc(c.cuota)}"></div>
       </div>
       <label>Objetivo</label><input name="objetivo" placeholder="Ej. bajar 6 kg, mejorar sentadilla…" value="${esc(c.objetivo)}">
+      <label>Cliente desde (para descuentos por lealtad)</label><input name="desde" type="date" value="${esc(c.desde || c.creado || hoyISO())}">
       <label>Lesiones / notas</label><textarea name="notas">${esc(c.notas)}</textarea>
       <div class="botones">
         <button class="boton" type="submit">Guardar</button>
@@ -264,6 +267,7 @@ function vCliente() {
       <div class="stat"><b>${dif === null ? '—' : (dif > 0 ? '+' : '') + dif.toFixed(1)}</b><span>Cambio kg</span></div>
     </div>
 
+    ${bloqueAppCliente(c)}
     <h2>Evolución del peso</h2>
     <div class="tarjeta">${grafica(medidas.filter(m => m.peso).map(m => ({ x: m.fecha, y: Number(m.peso) })))}</div>
 
@@ -376,6 +380,7 @@ function vSesion() {
     ${s.notas ? `<p class="sub">${esc(s.notas)}</p>` : ''}
     <div class="botones">
       <button class="boton" data-action="nuevo-entreno" data-sesion="${s.id}">⚡ Entrenar</button>
+      <button class="boton sec" data-action="enviar-rutina-app" data-id="${s.id}">📱 Activar en la app</button>
       <button class="boton sec" data-action="compartir-sesion" data-id="${s.id}">Enviar por WhatsApp</button>
       <button class="boton sec" data-action="editar-sesion" data-id="${s.id}">Renombrar</button>
       <button class="boton sec" data-action="duplicar-sesion" data-id="${s.id}">Duplicar</button>
@@ -530,7 +535,7 @@ const pagoDe = (clienteId, mes) => db.pagos.find(p => p.clienteId === clienteId 
 function vPagos() {
   const conCuota = db.clientes.filter(c => Number(c.cuota) > 0).sort((a, b) => a.nombre.localeCompare(b.nombre));
   const cobrado = conCuota.reduce((t, c) => { const p = pagoDe(c.id, mesPagos); return t + (p?.pagado ? Number(p.monto) : 0); }, 0);
-  const esperado = conCuota.reduce((t, c) => t + Number(c.cuota), 0);
+  const esperado = conCuota.reduce((t, c) => { const p = pagoDe(c.id, mesPagos); return t + (p?.pagado ? Number(p.monto) : cuotaConDescuento(c).monto); }, 0);
   return `
     <div class="cabecera"><div><h1>Pagos</h1><p class="sub">Controla quién te ha pagado</p></div></div>
     <div class="fila tarjeta">
@@ -548,11 +553,11 @@ function vPagos() {
       return `
         <div class="tarjeta fila">
           <div class="fila-izq"><div class="avatar">${esc(iniciales(c.nombre))}</div>
-            <div class="trunc"><b>${esc(c.nombre)}</b><div class="sub">${p?.pagado ? `Pagó ${dinero(p.monto)} · ${fechaBonita(p.fecha)}` : `Cuota ${dinero(c.cuota)}`}</div></div></div>
+            <div class="trunc"><b>${esc(c.nombre)}</b><div class="sub">${p?.pagado ? `Pagó ${dinero(p.monto)} · ${fechaBonita(p.fecha)}${p.descuento ? ` (−${p.descuento}%)` : ''}` : textoCuota(c)}</div></div></div>
           ${p?.pagado
             ? `<button class="boton sec mini" data-action="desmarcar-pago" data-id="${c.id}" data-mes="${mesPagos}">Deshacer</button>`
             : `<div class="botones" style="margin:0">
-                 ${c.telefono ? `<a class="boton sec mini" target="_blank" rel="noopener" href="${linkWhats(c.telefono, `Hola ${c.nombre.split(' ')[0]} 👋, te recuerdo la cuota de ${mesBonito(mesPagos)}: ${dinero(c.cuota)}. ¡Gracias! — Erik`)}">Recordar</a>` : ''}
+                 ${c.telefono ? `<a class="boton sec mini" target="_blank" rel="noopener" href="${linkWhats(c.telefono, `Hola ${c.nombre.split(' ')[0]} 👋, te recuerdo la cuota de ${mesBonito(mesPagos)}: ${dinero(cuotaConDescuento(c).monto)}${cuotaConDescuento(c).pct ? ` (ya con tu ${cuotaConDescuento(c).pct}% de descuento 🎁)` : ''}. ¡Gracias! — Erik`)}">Recordar</a>` : ''}
                  <button class="boton mini" data-action="marcar-pago" data-id="${c.id}" data-mes="${mesPagos}">Cobrado</button></div>`}
         </div>`;
     }).join('') : '<div class="vacio">Pon una cuota mensual a tus clientes para llevar aquí los cobros.</div>'}
@@ -754,6 +759,7 @@ function vAjustes() {
       <label class="boton sec" style="margin:0;color:var(--texto)">⬆ Restaurar copia
         <input type="file" accept="application/json,.json" data-input="importar" hidden></label>
     </div>
+    ${bloquePortalAjustes()}
     ${bloqueTema()}
     <h2>Instalar en el móvil</h2>
     <p class="sub">iPhone: Safari → Compartir → «Añadir a pantalla de inicio».<br>
@@ -901,9 +907,10 @@ document.addEventListener('click', e => {
       const c = porId('clientes', id);
       const mes = el.dataset.mes;
       const p = pagoDe(id, mes);
-      if (p) Object.assign(p, { pagado: true, monto: Number(c.cuota), fecha: hoyISO() });
-      else db.pagos.push({ id: uid(), clienteId: id, mes, monto: Number(c.cuota), pagado: true, fecha: hoyISO() });
-      guardar(); render(); aviso(`${c.nombre.split(' ')[0]}: pago registrado ✓`);
+      const { monto, pct } = aplicarDescuentoAlCobrar(c);
+      if (p) Object.assign(p, { pagado: true, monto, descuento: pct, fecha: hoyISO() });
+      else db.pagos.push({ id: uid(), clienteId: id, mes, monto, descuento: pct, pagado: true, fecha: hoyISO() });
+      guardar(); render(); aviso(`${c.nombre.split(' ')[0]}: pago registrado ✓${pct ? ` (−${pct}%)` : ''}`);
     },
     'desmarcar-pago'() {
       db.pagos = db.pagos.filter(p => !(p.clienteId === id && p.mes === el.dataset.mes));
@@ -1005,6 +1012,10 @@ document.addEventListener('submit', e => {
     d.nombre = d.nombre.trim();
     if (id) Object.assign(porId('clientes', id), d);
     else db.clientes.push({ id: uid(), creado: hoyISO(), medidas: [], ...d });
+    const editado = id && porId('clientes', id);
+    if (editado?.cuentaId && typeof portalConectado === 'function' && portalConectado()) {
+      Nube.actualizarCliente(editado.cuentaId, { cliente_desde: editado.desde || editado.creado }).catch(() => {});
+    }
     guardar(); cerrarModal();
     id ? render() : ir({ tab: 'clientes' });
     aviso('Cliente guardado ✓');
@@ -1051,10 +1062,8 @@ document.addEventListener('submit', e => {
 
 /* ================= Arranque ================= */
 // Arranca cuando todos los módulos ya se registraron
-document.addEventListener('DOMContentLoaded', () => {
-  if (db.activo) ruta = { tab: 'hoy', vista: 'entreno' };
-  render();
-});
+// El arranque decide el rol (cliente.js): entrenador, cliente o pantalla de bienvenida
+document.addEventListener('DOMContentLoaded', () => arrancar());
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

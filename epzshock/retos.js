@@ -165,6 +165,7 @@ function vReto() {
       <button class="boton sec" data-action="invitar-reto" data-id="${r.id}">Invitar</button>
     </div>
 
+    ${bloqueRetoApp(r)}
     <h2>Ranking</h2>
     ${rk.length ? rk.map(({ p, v }, i) => {
       const meta = Number(r.meta);
@@ -179,6 +180,7 @@ function vReto() {
         ${pct !== null ? `<div class="barra-meta"><i style="width:${pct}%"></i></div>` : ''}
         <div class="botones" style="margin-top:8px">
           ${p.telefono ? `<a class="boton sec mini" target="_blank" rel="noopener" href="${linkWhats(p.telefono, `Hola ${p.nombre.split(' ')[0]} 🔥 ¿Cómo vas en el ${r.nombre}? Mándame tu resultado con foto/vídeo como prueba y te subo en el ranking 💪`)}">Pedir resultado</a>` : ''}
+          ${botonPagado(r, p)}
           <button class="boton sec mini" data-action="quitar-participante" data-id="${r.id}" data-p="${p.id}">Quitar</button>
         </div>
       </div>`;

@@ -1,0 +1,21 @@
+{
+  "name": "epzshock-tiendas",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Empaqueta la app web de Epzshock para App Store y Google Play con Capacitor",
+  "scripts": {
+    "web": "node copiar-web.mjs",
+    "iconos": "capacitor-assets generate --iconBackgroundColor '#0a0a0c' --splashBackgroundColor '#0a0a0c' --splashBackgroundColorDark '#0a0a0c'",
+    "android": "npm run web && cap sync android && cap open android",
+    "ios": "npm run web && cap sync ios && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.6.2",
+    "@capacitor/core": "8.6.2",
+    "@capacitor/ios": "8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "4.0.0",
+    "@capacitor/cli": "8.6.2"
+  }
+}

@@ -10,7 +10,7 @@ const portal = {
 const portalConectado = () => portal.sesion?.perfil.rol === 'entrenador';
 
 // Los descuentos viven en los datos del entrenador (y viajan en la copia de seguridad)
-const descuentos = () => (db.descuentos = Object.assign({ lealtad: 10, meses: 3, amigo: 10, referidor: 10, iaDia: 20, iaActiva: false }, db.descuentos));
+const descuentos = () => (db.descuentos = Object.assign({ lealtad: 10, meses: 3, amigo: 10, referidor: 10, iaDia: 20, iaActiva: false, whatsapp: '' }, db.descuentos));
 // IA de pago (API de Claude): apagada por defecto para operar a costo cero
 const iaActiva = () => portalConectado() && descuentos().iaActiva;
 
@@ -25,6 +25,7 @@ async function sincronizarPortal({ silencioso = true } = {}) {
     ]);
     Object.assign(portal, { solicitudes, invitaciones, cuentas, mensajes });
     vincularCuentas();
+    cargarServicios();
     await importarEntrenos();
     if (!document.body.classList.contains('modo-cliente') && !modal.open) render();
   } catch (e) { if (!silencioso) aviso(e.message); }
@@ -180,6 +181,7 @@ function vAppClientes() {
       <div class="tarjeta">
         <div class="fila"><b>${esc(s.nombre)}</b><span class="sub">${fechaBonita(s.creada_en)}</span></div>
         <div class="sub">📞 ${esc(s.telefono)}${s.referido_por ? ` · 👯 Recomendado por ${esc(portal.cuentas.find(c => c.id === s.referido_por)?.nombre || 'un cliente')}` : ' · 📣 desde tus redes'}</div>
+        ${s.servicio ? `<p style="margin-top:6px"><span class="chip acento">🛒 Interesado en: ${esc(s.servicio)}</span></p>` : ''}
         ${s.mensaje ? `<p style="margin-top:6px">“${esc(s.mensaje)}”</p>` : ''}
         <div class="botones"><button class="boton mini" data-action="aceptar-solicitud" data-id="${s.id}">Aceptar e invitar</button>
           <a class="boton sec mini" target="_blank" rel="noopener" href="${linkWhats(s.telefono, `Hola ${s.nombre.split(' ')[0]} 👋, soy Erik de EPZSHOCK. ¡Gracias por tu interés!`)}">WhatsApp</a>
@@ -329,6 +331,105 @@ EXTRA.acciones['previa-sesion'] = el => {
   if (s) previaRutina(s.nombre, contenidoRutina(s));
 };
 
+/* ================= Servicios y precios ================= */
+portal.servicios = null;
+async function cargarServicios() {
+  try { portal.servicios = await Nube.servicios(); } catch (e) { portal.servicios = []; }
+  if (ruta.vista === 'servicios' || ruta.tab === 'pagos') { if (!modal.open) render(); }
+}
+function bloqueServiciosPagos() {
+  if (Nube.modo === 'nula') return '';
+  const n = portal.servicios?.length;
+  return `<div class="tarjeta click asistente" data-action="ir-servicios">
+    <div><b>🛒 Mis servicios y precios</b><p class="sub">${n == null ? 'Planes, retos y lo que ofreces' : `${n} servicio(s) · tus clientes los ven en «Planes»`}</p></div>
+    <span class="chip acento">Editar</span></div>`;
+}
+
+function vServicios() {
+  if (!portalConectado()) return `<div class="vacio">Conéctate como entrenador en ⚙︎ Ajustes para editar tus servicios.</div>`;
+  if (portal.servicios === null) { cargarServicios(); return '<div class="vacio">Cargando…</div>'; }
+  const lista = [...portal.servicios].sort((a, b) => a.orden - b.orden || (a.precio ?? 0) - (b.precio ?? 0));
+  const D = descuentos();
+  return `
+    <button class="enlace" data-action="tab" data-tab="pagos">← Pagos</button>
+    <div class="cabecera" style="margin-top:6px"><div><h1>Servicios y precios</h1><p class="sub">Tus clientes los ven en la pestaña «Planes» y en tu link de redes.</p></div>
+      <button class="boton" data-action="form-servicio">+ Nuevo</button></div>
+    <form data-form="whatsapp-erik" class="tarjeta">
+      <label for="wa-erik">Tu WhatsApp para recibir pedidos (con lada, p. ej. 5215512345678)</label>
+      <div class="fila"><input id="wa-erik" name="whatsapp" inputmode="tel" maxlength="20" value="${esc(D.whatsapp)}"><button class="boton sec" type="submit">Guardar</button></div>
+    </form>
+    <div class="botones"><button class="boton sec" data-action="previa-planes" ${lista.length ? '' : 'disabled'}>👁 Ver como cliente</button></div>
+    ${lista.length ? lista.map((s, i) => `
+      <div class="tarjeta">
+        <div class="fila"><div style="min-width:0"><b>${esc(s.nombre)}</b>
+          <div class="sub">${esc(CATEGORIAS[s.categoria] || '')} · ${esc(precioTexto(s))}</div></div>
+          <div class="mover"><button data-action="mover-servicio" data-id="${esc(s.id)}" data-dir="-1" aria-label="Subir" ${i ? '' : 'disabled'}>↑</button>
+            <button data-action="mover-servicio" data-id="${esc(s.id)}" data-dir="1" aria-label="Bajar" ${i < lista.length - 1 ? '' : 'disabled'}>↓</button></div></div>
+        <div class="filtros" style="margin:8px 0 0">${s.destacado ? '<span class="chip acento">⭐ Más popular</span>' : ''}${s.activo ? '<span class="chip ok">Visible</span>' : '<span class="chip no">Oculto</span>'}</div>
+        <div class="botones"><button class="boton sec mini" data-action="form-servicio" data-id="${esc(s.id)}">Editar</button></div>
+      </div>`).join('') : '<div class="vacio">Aún no tienes servicios. Toca «+ Nuevo» para crear el primero.</div>'}`;
+}
+
+function formServicio(id) {
+  const s = (portal.servicios || []).find(x => x.id === id) || { categoria: 'plan', activo: true, incluye: [] };
+  abrirModal(`
+    <h2>${id ? 'Editar servicio' : 'Nuevo servicio'}</h2>
+    <form data-form="servicio" data-id="${esc(id || '')}">
+      <label for="sv-nombre">Nombre *</label><input id="sv-nombre" name="nombre" required maxlength="80" value="${esc(s.nombre)}" placeholder="Ej. Plan VIP">
+      <div class="rejilla-2">
+        <div><label for="sv-cat">Tipo</label><select id="sv-cat" name="categoria">${Object.entries(CATEGORIAS).map(([k, t]) => `<option value="${k}" ${s.categoria === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+        <div><label for="sv-precio">Precio (MXN)</label><input id="sv-precio" name="precio" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(s.precio ?? '')}" placeholder="Vacío = consultar"></div>
+      </div>
+      <label for="sv-periodo">Periodo</label><input id="sv-periodo" name="periodo" maxlength="30" value="${esc(s.periodo)}" placeholder="al mes · 4 semanas · pago único">
+      <label for="sv-desc">Descripción</label><textarea id="sv-desc" name="descripcion" maxlength="500">${esc(s.descripcion)}</textarea>
+      <label for="sv-incluye">¿Qué incluye? (uno por línea, máx. 15)</label><textarea id="sv-incluye" name="incluye" rows="5">${esc((s.incluye || []).join('\n'))}</textarea>
+      <label class="fila-izq" style="color:var(--texto)"><input type="checkbox" name="destacado" ${s.destacado ? 'checked' : ''} style="width:auto;min-height:auto"> ⭐ Destacar como «Más popular»</label>
+      <label class="fila-izq" style="color:var(--texto)"><input type="checkbox" name="activo" ${s.activo !== false ? 'checked' : ''} style="width:auto;min-height:auto"> Visible para clientes</label>
+      <div class="botones"><button class="boton" type="submit">Guardar</button><button class="boton sec" type="button" data-action="cerrar">Cancelar</button>
+        ${id ? `<button class="boton peligro" type="button" data-action="borrar-servicio" data-id="${esc(id)}">Borrar</button>` : ''}</div>
+    </form>`);
+}
+
+EXTRA.vistas.servicios = vServicios;
+EXTRA.forms.servicio = async (d, form) => {
+  const id = form.dataset.id || undefined;
+  const actual = (portal.servicios || []).find(x => x.id === id);
+  const datos = {
+    id, nombre: String(d.nombre).trim(), categoria: d.categoria, precio: d.precio === '' ? null : Math.round(Number(d.precio) * 100) / 100,
+    periodo: String(d.periodo || '').trim() || null, descripcion: String(d.descripcion || '').trim() || null,
+    incluye: String(d.incluye || '').split('\n').map(x => x.trim()).filter(Boolean).slice(0, 15),
+    destacado: !!d.destacado, activo: !!d.activo,
+    orden: actual ? actual.orden : Math.max(0, ...(portal.servicios || []).map(x => x.orden + 1)),
+  };
+  try { await Nube.guardarServicio(datos); cerrarModal(); aviso('Servicio guardado ✓'); portal.servicios = null; await cargarServicios(); }
+  catch (e) { aviso(e.message); }
+};
+EXTRA.forms['whatsapp-erik'] = async d => {
+  const tel = String(d.whatsapp || '').replace(/[^\d]/g, '').slice(0, 20);
+  db.descuentos = { ...descuentos(), whatsapp: tel }; guardar();
+  try { await Nube.guardarAjustes(ajustesNube()); aviso('WhatsApp guardado ✓'); } catch (e) { aviso(e.message); }
+};
+Object.assign(EXTRA.acciones, {
+  'ir-servicios'() { ir({ tab: 'pagos', vista: 'servicios' }); cargarServicios(); },
+  'form-servicio': el => formServicio(el.dataset.id),
+  async 'borrar-servicio'(el) {
+    if (!confirm('¿Borrar este servicio? Dejará de verse en la app.')) return;
+    try { await Nube.borrarServicio(el.dataset.id); cerrarModal(); portal.servicios = null; await cargarServicios(); aviso('Servicio borrado'); } catch (e) { aviso(e.message); }
+  },
+  async 'mover-servicio'(el) {
+    const lista = [...portal.servicios].sort((a, b) => a.orden - b.orden || (a.precio ?? 0) - (b.precio ?? 0));
+    const i = lista.findIndex(x => x.id === el.dataset.id), j = i + Number(el.dataset.dir);
+    if (j < 0 || j >= lista.length) return;
+    [lista[i], lista[j]] = [lista[j], lista[i]];
+    try { await Promise.all(lista.map((s, k) => s.orden === k ? null : Nube.guardarServicio({ id: s.id, orden: k }))); portal.servicios = null; await cargarServicios(); }
+    catch (e) { aviso(e.message); }
+  },
+  'previa-planes'() {
+    abrirModal(`<p class="chip acento" style="margin-bottom:8px">👁 Así lo ven tus clientes</p><h2>Planes 🛒</h2>
+      ${htmlPlanes((portal.servicios || []).filter(s => s.activo), 'previa')}<div class="botones"><button class="boton sec" data-action="cerrar">Cerrar</button></div>`);
+  },
+});
+
 /* ================= Invitaciones y solicitudes ================= */
 function mensajeInvitacion(nombre, codigo) {
   return `¡Hola ${nombre.split(' ')[0]}! 💪 Te doy acceso a EPZSHOCK, mi app de entrenamiento.
@@ -441,10 +542,10 @@ EXTRA.forms['portal-entrar'] = async d => {
     Nube.guardarAjustes(ajustesNube()).catch(() => {});
   } catch (e) { aviso(e.message); }
 };
-const ajustesNube = () => { const D = descuentos(); return { descuento_lealtad: D.lealtad, meses_lealtad: D.meses, descuento_amigo: D.amigo, premio_referidor: D.referidor, mensajes_ia_dia: D.iaDia, ia_activa: !!D.iaActiva }; };
+const ajustesNube = () => { const D = descuentos(); return { descuento_lealtad: D.lealtad, meses_lealtad: D.meses, descuento_amigo: D.amigo, premio_referidor: D.referidor, mensajes_ia_dia: D.iaDia, ia_activa: !!D.iaActiva, whatsapp: D.whatsapp || null }; };
 EXTRA.forms.descuentos = async d => {
   const n = (v, min, max) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)));
-  db.descuentos = { lealtad: n(d.lealtad, 0, 50), meses: n(d.meses, 1, 24), amigo: n(d.amigo, 0, 50), referidor: n(d.referidor, 0, 50), iaDia: n(d.iaDia, 0, 200), iaActiva: !!d.iaActiva };
+  db.descuentos = { ...descuentos(), lealtad: n(d.lealtad, 0, 50), meses: n(d.meses, 1, 24), amigo: n(d.amigo, 0, 50), referidor: n(d.referidor, 0, 50), iaDia: n(d.iaDia, 0, 200), iaActiva: !!d.iaActiva };
   guardar(); aviso(db.descuentos.iaActiva ? 'Guardado ✓ · IA de pago encendida' : 'Guardado ✓ · modo costo $0');
   if (portalConectado()) { try { await Nube.guardarAjustes(ajustesNube()); } catch (e) { aviso(e.message); } }
 };

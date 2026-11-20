@@ -306,3 +306,14 @@ details.tarjeta summary::-webkit-details-marker { display: none; }
 @keyframes demo-alterna { 0%, 38% { opacity: 0; } 50%, 88% { opacity: 1; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .demo .demo-b { animation: none; opacity: 0; } }
 .demo-mini { flex: none; width: 56px; height: 42px; border-radius: 8px; object-fit: cover; background: #fff; }
+
+/* ===== Planes y precios ===== */
+.cat-planes { margin: 18px 0 8px; font-size: 1rem; }
+.plan { display: grid; gap: 6px; }
+.plan .chip { justify-self: start; }
+.plan-destacado { border-color: var(--acento); box-shadow: 0 0 0 1px var(--acento) inset; }
+.plan-oculto { opacity: .6; }
+.plan-nombre { font-size: 1.1rem; }
+.plan-precio { font-size: 1.5rem; font-weight: 900; color: var(--acento-fuerte); font-variant-numeric: tabular-nums; }
+.plan-incluye { list-style: none; padding: 0; display: grid; gap: 4px; font-size: .9rem; }
+.plan-incluye li::before { content: "✓ "; color: var(--ok); font-weight: 800; }

@@ -103,14 +103,51 @@ function pantallaSolicitud(ref) {
     <div class="bienvenida"><img src="icon-512.png" alt="" class="bienvenida-logo">
       <h1>${ref ? 'Un amigo te recomendó ' : 'Entrena con '}EPZ<span class="marca-shock">SHOCK</span> 🔥</h1>
       <p class="sub">Entrenamiento personalizado con Erik Perez, licenciado en Entrenamiento Deportivo. Deja tus datos y Erik te escribe por WhatsApp${ref ? '. Por venir recomendado tienes un <b>descuento de bienvenida</b>' : ' para empezar'}.</p></div>
-    <form data-form="c-solicitud" class="tarjeta" data-ref="${esc(ref)}">
+    <div id="planes-publicos"></div>
+    <form data-form="c-solicitud" class="tarjeta" data-ref="${esc(ref)}" id="form-solicitud">
+      <label for="sol-servicio">¿Qué te interesa?</label>
+      <select id="sol-servicio" name="servicio"><option value="">Aún no lo sé, quiero información</option></select>
       <label>Tu nombre *</label><input name="nombre" required maxlength="80">
       <label>WhatsApp *</label><input name="telefono" inputmode="tel" required maxlength="20">
       <label>¿Qué te gustaría lograr?</label><textarea name="mensaje" maxlength="500" placeholder="Ej. bajar de peso, ganar fuerza, prepararme para un deporte…"></textarea>
       <input name="sitio" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px" aria-hidden="true">
       <div class="botones"><button class="boton ancho" type="submit">Quiero entrenar con Erik</button></div>
     </form>`);
+  Nube.servicios().then(lista => {
+    if (!lista.length) return;
+    $('#planes-publicos').innerHTML = `<h2>Planes y precios</h2>${htmlPlanes(lista, 'publico')}`;
+    $('#sol-servicio').insertAdjacentHTML('beforeend', lista.map(s => `<option value="${esc(s.nombre)}">${esc(s.nombre)}${mostrarPrecios() && s.precio != null ? ` · ${esc(precioTexto(s))}` : ''}</option>`).join(''));
+  }).catch(() => {});
 }
+
+/* ===== Planes y precios (servicios del entrenador) ===== */
+const CATEGORIAS = { reto: '🔥 Retos', plan: '💪 Planes personalizados', otro: '✨ Otros servicios' };
+// En la app nativa de iPhone no se muestran precios (reglas de Apple sobre ventas fuera de la app)
+const mostrarPrecios = () => !(window.Capacitor?.getPlatform?.() === 'ios');
+const precioTexto = s => s.precio == null ? 'Consultar precio' : `${dinero(s.precio)} MXN${s.periodo ? ' ' + s.periodo : ''}`;
+
+function htmlPlanes(lista, modo) {
+  return Object.entries(CATEGORIAS).map(([cat, titulo]) => {
+    const grupo = lista.filter(s => (s.categoria || 'plan') === cat);
+    if (!grupo.length) return '';
+    return `<h3 class="cat-planes">${titulo}</h3>` + grupo.map(s => `
+      <div class="tarjeta plan ${s.destacado ? 'plan-destacado' : ''} ${s.activo === false ? 'plan-oculto' : ''}">
+        ${s.destacado ? '<span class="chip acento">⭐ Más popular</span>' : ''}${s.activo === false ? '<span class="chip no">Oculto</span>' : ''}
+        <b class="plan-nombre">${esc(s.nombre)}</b>
+        ${mostrarPrecios() ? `<div class="plan-precio">${esc(precioTexto(s))}</div>` : ''}
+        ${s.descripcion ? `<p class="sub">${esc(s.descripcion)}</p>` : ''}
+        ${(s.incluye || []).length ? `<ul class="plan-incluye">${s.incluye.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
+        ${modo === 'cliente' ? `<button class="boton ancho" data-action="c-quiero" data-id="${esc(s.id)}">Lo quiero</button>`
+          : modo === 'publico' ? `<button class="boton sec ancho" data-action="c-me-interesa" data-nombre="${esc(s.nombre)}">Me interesa</button>` : ''}
+      </div>`).join('');
+  }).join('');
+}
+
+EXTRA.acciones['c-me-interesa'] = el => {
+  $('#sol-servicio').value = el.dataset.nombre;
+  $('#form-solicitud').scrollIntoView({ behavior: 'smooth' });
+  setTimeout(() => $('#form-solicitud [name=nombre]')?.focus(), 400);
+};
 
 function pantallaOlvide() {
   modoPublico(`
@@ -202,7 +239,7 @@ EXTRA.acciones['c-soy-entrenador'] = () => {
 function limpiarUrl() { if (location.search) history.replaceState(null, '', location.pathname); }
 
 /* ================= App del cliente ================= */
-const TABS_CLIENTE = [['rutinas', '⚡', 'Rutinas'], ['retos', '🔥', 'Retos'], ['ayuda', '💬', 'Ayuda'], ['perfil', '☺', 'Perfil']];
+const TABS_CLIENTE = [['rutinas', '⚡', 'Rutinas'], ['retos', '🔥', 'Retos'], ['planes', '🛒', 'Planes'], ['ayuda', '💬', 'Ayuda'], ['perfil', '☺', 'Perfil']];
 
 function arrancarCliente() {
   document.body.classList.add('modo-cliente');
@@ -225,10 +262,10 @@ async function refrescarCliente() {
   cli.cargando = true;
   try {
     await sincronizarCola();
-    const [rutinas, retos, accesos, mensajes, beneficios, entrenos, ajustes] = await Promise.all([
-      Nube.misRutinas(), Nube.retosPublicos(), Nube.misAccesos(), Nube.mensajes(), Nube.beneficios(), Nube.misEntrenos(), Nube.ajustes(),
+    const [rutinas, retos, accesos, mensajes, beneficios, entrenos, ajustes, servicios] = await Promise.all([
+      Nube.misRutinas(), Nube.retosPublicos(), Nube.misAccesos(), Nube.mensajes(), Nube.beneficios(), Nube.misEntrenos(), Nube.ajustes(), Nube.servicios(),
     ]);
-    Object.assign(cli, { rutinas, retos, accesos, mensajes, beneficios, entrenos, iaActiva: !!ajustes?.ia_activa, error: '' });
+    Object.assign(cli, { rutinas, retos, accesos, mensajes, beneficios, entrenos, servicios, whatsappErik: ajustes?.whatsapp || '', iaActiva: !!ajustes?.ia_activa, error: '' });
     cli.local.cache = rutinas;
     // Las descargas se actualizan si Erik cambió la rutina; las que ya no están activas se borran
     for (const id of Object.keys(cli.local.descargas)) {
@@ -266,9 +303,9 @@ function quedan(iso) {
 
 function renderCliente() {
   const nav = $('.tabs');
-  nav.style.gridTemplateColumns = 'repeat(4, 1fr)';
+  nav.style.gridTemplateColumns = `repeat(${TABS_CLIENTE.length}, 1fr)`;
   nav.innerHTML = TABS_CLIENTE.map(([k, i, t]) => `<button data-action="c-tab" data-tab-c="${k}" class="${cli.tab === k ? 'activo' : ''}"><span>${i}</span>${t}</button>`).join('');
-  const v = { rutinas: cRutinas, rutina: cRutina, entreno: cEntreno, retos: cRetos, reto: cReto, ayuda: cAyuda, perfil: cPerfil };
+  const v = { rutinas: cRutinas, rutina: cRutina, entreno: cEntreno, retos: cRetos, reto: cReto, planes: cPlanes, ayuda: cAyuda, perfil: cPerfil };
   vista.innerHTML = (sinConexion() + (v[cli.vista || cli.tab] || cRutinas)());
   if (cli.vista === 'entreno') tickCliente();
   if (cli.tab === 'ayuda' && !cli.vista) $('#chat-fin')?.scrollIntoView();
@@ -326,6 +363,36 @@ const mostrarAvisoInstalar = () => { try { return !estaInstalada() && !localStor
 
 // Animación del ejercicio: la que trae la rutina o, si es una rutina antigua, la de la biblioteca por nombre
 const demoDe = it => it.demo || (DEMOS[it.nombre] ? `ejercicios/${DEMOS[it.nombre]}` : '');
+
+function cPlanes() {
+  const lista = cli.servicios || [];
+  return `
+    <h1>Planes 🛒</h1>
+    <p class="sub">Elige tu plan y Erik te contacta para confirmarlo. El pago se hace directo con él.</p>
+    ${lista.length ? htmlPlanes(lista, 'cliente') : `<div class="vacio">${Nube.enLinea() ? 'Pronto verás aquí los planes disponibles.' : 'Conéctate a internet para ver los planes.'}</div>`}`;
+}
+
+EXTRA.acciones['c-quiero'] = el => {
+  const s = (cli.servicios || []).find(x => x.id === el.dataset.id);
+  if (!s) return;
+  const texto = `🛒 Quiero contratar: ${s.nombre}${mostrarPrecios() && s.precio != null ? ` (${precioTexto(s)})` : ''}`;
+  abrirModal(`
+    <h2>${esc(s.nombre)}</h2>
+    ${mostrarPrecios() ? `<p class="plan-precio">${esc(precioTexto(s))}</p>` : ''}
+    <p class="sub">Le avisamos a Erik que te interesa este plan. Él te escribe para confirmarlo y acordar el pago.</p>
+    <div class="botones">
+      <button class="boton ancho" data-action="c-pedir" data-texto="${esc(texto)}">Enviar pedido a Erik</button>
+      ${cli.whatsappErik ? `<a class="boton sec ancho" target="_blank" rel="noopener noreferrer" href="${linkWhats(cli.whatsappErik, texto + ' — ' + (cli.perfil?.nombre || ''))}">Escribirle por WhatsApp</a>` : ''}
+      <button class="boton sec ancho" data-action="cerrar">Cancelar</button>
+    </div>`);
+};
+EXTRA.acciones['c-pedir'] = async el => {
+  try {
+    await Nube.pedirServicio(el.dataset.texto);
+    cli.mensajes.push({ autor: 'cliente', texto: el.dataset.texto, creado_en: new Date().toISOString() });
+    cerrarModal(); aviso('Pedido enviado a Erik ✓ Te contactará pronto');
+  } catch (e) { aviso(e.message); }
+};
 
 function cRutinas() {
   const lista = rutinasVisibles();

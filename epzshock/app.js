@@ -80,7 +80,7 @@ function iniciales(nombre) {
   return nombre.trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?';
 }
 function dinero(n) {
-  return '$' + (Number(n) || 0).toLocaleString('es', { maximumFractionDigits: 2 });
+  return '$' + (Number(n) || 0).toLocaleString('es-MX', { maximumFractionDigits: 2 });
 }
 function duracion(seg) {
   const m = Math.floor(seg / 60), s = Math.floor(seg % 60);
@@ -558,6 +558,7 @@ function vPagos() {
   const esperado = conCuota.reduce((t, c) => { const p = pagoDe(c.id, mesPagos); return t + (p?.pagado ? Number(p.monto) : cuotaConDescuento(c).monto); }, 0);
   return `
     <div class="cabecera"><div><h1>Pagos</h1><p class="sub">Controla quién te ha pagado</p></div></div>
+    ${bloqueServiciosPagos()}
     <div class="fila tarjeta">
       <button class="boton sec mini" data-action="mes" data-dir="-1" aria-label="Mes anterior">←</button>
       <b>${mesBonito(mesPagos)}</b>

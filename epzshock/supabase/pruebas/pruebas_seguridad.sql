@@ -142,3 +142,26 @@ do $$ begin
   raise notice 'ok: funciones de permisos fuera de la API pública';
 end $$;
 \echo REFUERZO DE SEGURIDAD VERIFICADO
+
+-- ===== Servicios y precios (migración 2026-11-23) =====
+select pg_temp.como('00000000-0000-0000-0000-00000000000e') \g /dev/null
+insert into servicios (nombre, precio, periodo, activo) values ('VIP', 1500, 'al mes', true), ('Borrador', 999, 'al mes', false);
+reset role;
+create function pg_temp.servicios_anon() returns bigint language plpgsql as $$
+declare n bigint; begin execute 'set local role anon'; select count(*) into n from public.servicios; execute 'reset role'; return n; end $$;
+select pg_temp.esperar(pg_temp.servicios_anon() = 1, 'un visitante sin cuenta ve solo los servicios activos') \g /dev/null
+select pg_temp.como('00000000-0000-0000-0000-00000000000a') \g /dev/null
+select pg_temp.esperar((select count(*) from servicios) = 1, 'un cliente ve solo los servicios activos') \g /dev/null
+do $$ begin
+  begin update servicios set precio = 1 where nombre = 'VIP';
+    if (select precio from servicios where nombre = 'VIP') = 1 then raise exception 'FALLÓ: un cliente cambió un precio'; end if;
+    raise notice 'ok: un cliente no puede cambiar precios';
+  end;
+  begin insert into servicios (nombre, precio) values ('Gratis', 0); raise exception 'FALLÓ: un cliente creó un servicio';
+  exception when insufficient_privilege then raise notice 'ok: un cliente no puede crear servicios'; end;
+end $$;
+reset role;
+select pg_temp.como('00000000-0000-0000-0000-00000000000e') \g /dev/null
+select pg_temp.esperar((select count(*) from servicios) = 2, 'el entrenador ve también los borradores') \g /dev/null
+reset role;
+\echo SERVICIOS VERIFICADOS

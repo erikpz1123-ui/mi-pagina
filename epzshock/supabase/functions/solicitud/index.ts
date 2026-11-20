@@ -10,6 +10,7 @@ Deno.serve(servir(async (req) => {
   const telefono = texto(b.telefono, 7, 20)?.replace(/[^\d+]/g, "");
   const mensaje = texto(b.mensaje ?? "", 0, 500) ?? "";
   const ref = texto(b.ref ?? "", 0, 16)?.toUpperCase() ?? "";
+  const servicio = texto(b.servicio ?? "", 0, 120) ?? "";
   if (!nombre || !telefono || telefono.length < 7) return error("Escribe tu nombre y un WhatsApp válido.");
 
   const db = admin();
@@ -31,6 +32,6 @@ Deno.serve(servir(async (req) => {
     const { data } = await db.from("perfiles").select("id").eq("codigo_referido", ref).eq("activo", true).maybeSingle();
     referidoPor = data?.id ?? null;
   }
-  const { error: e } = await db.from("solicitudes").insert({ nombre, telefono, mensaje: mensaje || null, referido_por: referidoPor, huella: miHuella });
+  const { error: e } = await db.from("solicitudes").insert({ nombre, telefono, mensaje: mensaje || null, referido_por: referidoPor, huella: miHuella, servicio: servicio || null });
   return e ? error("No se pudo enviar. Inténtalo de nuevo.", 500) : json({ ok: true });
 }));

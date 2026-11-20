@@ -102,6 +102,18 @@ const Nube = (() => {
       async despublicarReto(id) { ok(await sb.from('retos_publicos').delete().eq('id', id)); },
       iaEntrenador: mensajes => fn('ia-entrenador', { mensajes }),
       async ajustes() { return ok(await sb.from('ajustes').select('*').eq('id', 1).single()); },
+      // ---- servicios y precios (visibles también sin cuenta) ----
+      async servicios() { return ok(await sb.from('servicios').select('*').order('orden').order('precio')); },
+      async guardarServicio({ id, ...datos }) {
+        datos.actualizado = new Date().toISOString();
+        return id ? ok(await sb.from('servicios').update(datos).eq('id', id).select().single())
+          : ok(await sb.from('servicios').insert(datos).select().single());
+      },
+      async borrarServicio(id) { ok(await sb.from('servicios').delete().eq('id', id)); },
+      async pedirServicio(texto) {
+        const { data: u } = await sb.auth.getUser();
+        ok(await sb.from('mensajes').insert({ cliente_id: u.user.id, autor: 'cliente', texto: String(texto).slice(0, 1000) }));
+      },
       async guardarAjustes(d) { ok(await sb.from('ajustes').update(d).eq('id', 1)); },
     };
   }
@@ -118,7 +130,7 @@ const Nube = (() => {
         usuarios: [{ id: erik, email: 'erik@demo.mx', password: 'demo1234' }],
         perfiles: [{ id: erik, rol: 'entrenador', nombre: 'Erik Perez', telefono: '', cliente_desde: ahora().slice(0, 10), codigo_referido: 'ERIK0001', referido_por: null, cliente_local_id: null, activo: true, creado_en: ahora() }],
         invitaciones: [], solicitudes: [], rutinas: [], entrenos: [], mensajes: [],
-        retos_publicos: [], retos_detalle: [], reto_accesos: [],
+        retos_publicos: [], retos_detalle: [], reto_accesos: [], servicios: [],
         ajustes: { id: 1, descuento_lealtad: 10, meses_lealtad: 3, descuento_amigo: 10, premio_referidor: 10, mensajes_ia_dia: 20, ia_activa: false },
       };
     }
@@ -168,7 +180,7 @@ const Nube = (() => {
         if (!d.nombre || tel.length < 7) throw new Error('Escribe tu nombre y un WhatsApp válido.');
         if (s.solicitudes.some(x => x.telefono === tel && x.estado === 'pendiente')) return { ok: true, repetida: true };
         const ref = s.perfiles.find(p => p.codigo_referido === String(d.ref || '').toUpperCase() && p.activo);
-        s.solicitudes.push({ id: nuevoId(), nombre: d.nombre.trim(), telefono: tel, mensaje: d.mensaje || null, referido_por: ref?.id || null, estado: 'pendiente', creada_en: ahora() });
+        s.solicitudes.push({ id: nuevoId(), nombre: d.nombre.trim(), telefono: tel, mensaje: d.mensaje || null, servicio: d.servicio || null, referido_por: ref?.id || null, estado: 'pendiente', creada_en: ahora() });
         return { ok: true };
       }),
       // ---- cliente ----
@@ -259,6 +271,23 @@ const Nube = (() => {
       }),
       iaEntrenador: () => op(() => { exigir('entrenador'); if (!s.ajustes.ia_activa) throw new Error('La IA de pago está desactivada.'); return { respuesta: '🤖 (Modo demo) Conecta la nube y la clave de Claude para que el asistente IA responda aquí con rutinas y dietas completas.' }; }),
       ajustes: () => op(() => { exigir(); return s.ajustes; }),
+      servicios: () => op(() => {
+        s.servicios = s.servicios || [];
+        const p = yo();
+        return s.servicios.filter(x => x.activo || p?.rol === 'entrenador').sort((a, b) => a.orden - b.orden || (a.precio ?? 0) - (b.precio ?? 0));
+      }),
+      guardarServicio: ({ id, ...datos }) => op(() => {
+        exigir('entrenador'); s.servicios = s.servicios || [];
+        const x = id && s.servicios.find(v => v.id === id);
+        if (x) { Object.assign(x, datos, { actualizado: ahora() }); return x; }
+        const nuevo = { id: nuevoId(), categoria: 'plan', incluye: [], destacado: false, orden: 0, activo: true, ...datos, actualizado: ahora() };
+        s.servicios.push(nuevo); return nuevo;
+      }),
+      borrarServicio: id => op(() => { exigir('entrenador'); s.servicios = (s.servicios || []).filter(v => v.id !== id); }),
+      pedirServicio: texto => op(() => {
+        const p = exigir('cliente');
+        s.mensajes.push({ id: Date.now(), cliente_id: p.id, autor: 'cliente', texto: String(texto).slice(0, 1000), necesita_entrenador: false, leido_entrenador: false, creado_en: ahora() });
+      }),
       guardarAjustes: d => op(() => { exigir('entrenador'); Object.assign(s.ajustes, d); }),
     };
   }

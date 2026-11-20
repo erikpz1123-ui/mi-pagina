@@ -4,8 +4,8 @@
    3. Pon en appUrl la dirección pública donde vive la app web (para los links de invitación).
    Mientras supabaseUrl esté vacío y demo = true, la app simula la nube en este dispositivo. */
 window.EPZ_CONFIG = {
-  supabaseUrl: '',
-  supabaseAnonKey: '',
+  supabaseUrl: 'https://wxpyomxibunbprtlzkgs.supabase.co',
+  supabaseAnonKey: 'sb_publishable_Xogkyh1diWT1r8-i6bqA3A_u2pWIKMs',
   appUrl: '',
-  demo: true,
+  demo: false,
 };

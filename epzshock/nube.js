@@ -110,6 +110,13 @@ const Nube = (() => {
           : ok(await sb.from('servicios').insert(datos).select().single());
       },
       async borrarServicio(id) { ok(await sb.from('servicios').delete().eq('id', id)); },
+      async cupos() { return ok(await sb.rpc('cupos_ocupados')) || []; },
+      // ---- compras por transferencia ----
+      async comprar(servicioId) { return ok(await sb.from('compras').insert({ servicio_id: servicioId }).select().single()); },
+      async misCompras() { return ok(await sb.from('compras').select('*').order('creada_en', { ascending: false }).limit(30)); },
+      async avisarTransferencia(id) { ok(await sb.rpc('avisar_transferencia', { p_id: id })); },
+      async compras() { return ok(await sb.from('compras').select('*').order('creada_en', { ascending: false }).limit(200)); },
+      async marcarCompra(id, estado) { ok(await sb.from('compras').update({ estado, confirmada_en: estado === 'pagado' ? new Date().toISOString() : null }).eq('id', id)); },
       async pedirServicio(texto) {
         const { data: u } = await sb.auth.getUser();
         ok(await sb.from('mensajes').insert({ cliente_id: u.user.id, autor: 'cliente', texto: String(texto).slice(0, 1000) }));
@@ -274,7 +281,7 @@ const Nube = (() => {
       servicios: () => op(() => {
         s.servicios = s.servicios || [];
         const p = yo();
-        return s.servicios.filter(x => x.activo || p?.rol === 'entrenador').sort((a, b) => a.orden - b.orden || (a.precio ?? 0) - (b.precio ?? 0));
+        return s.servicios.filter(x => (x.activo && (!x.disponible_hasta || ahora() < x.disponible_hasta)) || p?.rol === 'entrenador').sort((a, b) => a.orden - b.orden || (a.precio ?? 0) - (b.precio ?? 0));
       }),
       guardarServicio: ({ id, ...datos }) => op(() => {
         exigir('entrenador'); s.servicios = s.servicios || [];
@@ -284,6 +291,35 @@ const Nube = (() => {
         s.servicios.push(nuevo); return nuevo;
       }),
       borrarServicio: id => op(() => { exigir('entrenador'); s.servicios = (s.servicios || []).filter(v => v.id !== id); }),
+      cupos: () => op(() => {
+        const n = {};
+        (s.compras || []).filter(c => ['pendiente', 'avisado', 'pagado'].includes(c.estado)).forEach(c => { n[c.servicio_id] = (n[c.servicio_id] || 0) + 1; });
+        return Object.entries(n).map(([servicio_id, ocupados]) => ({ servicio_id, ocupados }));
+      }),
+      comprar: servicioId => op(() => {
+        const p = exigir('cliente'); s.compras = s.compras || [];
+        const sv = (s.servicios || []).find(v => v.id === servicioId);
+        if (!sv || !sv.activo || (sv.disponible_hasta && ahora() >= sv.disponible_hasta)) throw new Error('Este servicio ya no está disponible.');
+        if (sv.precio == null) throw new Error('Este servicio no tiene precio: pídelo a Erik por el chat.');
+        const vivos = c => ['pendiente', 'avisado', 'pagado'].includes(c.estado);
+        if (sv.cupo && s.compras.filter(c => c.servicio_id === sv.id && vivos(c)).length >= sv.cupo) throw new Error(`Se agotaron los lugares de ${sv.nombre}.`);
+        if (s.compras.filter(c => c.cliente_id === p.id && ['pendiente', 'avisado'].includes(c.estado)).length >= 3) throw new Error('Tienes compras pendientes. Espera a que Erik las confirme.');
+        const monto = sv.oferta_hasta && ahora() >= sv.oferta_hasta && sv.precio_antes != null ? sv.precio_antes : sv.precio;
+        const c = { id: nuevoId(), cliente_id: p.id, servicio_id: sv.id, servicio_nombre: sv.nombre, monto, referencia: 'EPZ-' + codigo(3).toUpperCase(), estado: 'pendiente', creada_en: ahora(), avisado_en: null, confirmada_en: null };
+        s.compras.push(c); return c;
+      }),
+      misCompras: () => op(() => { const p = exigir(); return (s.compras || []).filter(c => c.cliente_id === p.id).reverse(); }),
+      avisarTransferencia: id => op(() => {
+        const p = exigir('cliente');
+        const c = (s.compras || []).find(x => x.id === id && x.cliente_id === p.id && x.estado === 'pendiente');
+        if (!c) throw new Error('No se encontró esa compra pendiente.');
+        Object.assign(c, { estado: 'avisado', avisado_en: ahora() });
+      }),
+      compras: () => op(() => { exigir('entrenador'); return [...(s.compras || [])].reverse(); }),
+      marcarCompra: (id, estado) => op(() => {
+        exigir('entrenador'); const c = (s.compras || []).find(x => x.id === id);
+        if (c) Object.assign(c, { estado, confirmada_en: estado === 'pagado' ? ahora() : null });
+      }),
       pedirServicio: texto => op(() => {
         const p = exigir('cliente');
         s.mensajes.push({ id: Date.now(), cliente_id: p.id, autor: 'cliente', texto: String(texto).slice(0, 1000), necesita_entrenador: false, leido_entrenador: false, creado_en: ahora() });

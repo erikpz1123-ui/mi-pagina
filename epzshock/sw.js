@@ -1,5 +1,5 @@
 // Epzshock — service worker: la app funciona sin conexión.
-const CACHE = 'epzshock-v19';
+const CACHE = 'epzshock-v21';
 const ARCHIVOS = ['./', 'index.html', 'app.css', 'tema.js', 'biblioteca.js', 'app.js', 'asistente.js', 'dieta.js', 'retos.js', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'config.js', 'vendor/supabase-2.119.1.js', 'nube.js', 'cliente.js', 'portal.js', 'privacidad.html'];
 
 self.addEventListener('install', e => {

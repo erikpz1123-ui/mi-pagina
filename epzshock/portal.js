@@ -25,7 +25,7 @@ async function sincronizarPortal({ silencioso = true } = {}) {
     ]);
     Object.assign(portal, { solicitudes, invitaciones, cuentas, mensajes });
     vincularCuentas();
-    cargarServicios();
+    cargarServicios(); cargarCompras();
     await importarEntrenos();
     if (!document.body.classList.contains('modo-cliente') && !modal.open) render();
   } catch (e) { if (!silencioso) aviso(e.message); }
@@ -333,8 +333,13 @@ EXTRA.acciones['previa-sesion'] = el => {
 
 /* ================= Servicios y precios ================= */
 portal.servicios = null;
+portal.pago = {};
 async function cargarServicios() {
-  try { portal.servicios = await Nube.servicios(); } catch (e) { portal.servicios = []; }
+  try {
+    const [servicios, ajustes] = await Promise.all([Nube.servicios(), Nube.ajustes()]);
+    portal.servicios = servicios;
+    portal.pago = { clabe: ajustes?.clabe || '', banco: ajustes?.banco || '', titular: ajustes?.titular || '' };
+  } catch (e) { portal.servicios = []; }
   if (ruta.vista === 'servicios' || ruta.tab === 'pagos') { if (!modal.open) render(); }
 }
 function bloqueServiciosPagos() {
@@ -358,14 +363,26 @@ function vServicios() {
       <label for="wa-erik">Tu WhatsApp para recibir pedidos (con lada, p. ej. 5215512345678)</label>
       <div class="fila"><input id="wa-erik" name="whatsapp" inputmode="tel" maxlength="20" value="${esc(D.whatsapp)}"><button class="boton sec" type="submit">Guardar</button></div>
     </form>
+    <form data-form="datos-pago" class="tarjeta">
+      <b>💳 Cuenta para recibir pagos</b>
+      <p class="sub">Tus clientes ven estos datos solo al tocar «Comprar». Se guardan en tu servidor, no en el teléfono.</p>
+      <label for="pg-clabe">CLABE interbancaria (18 dígitos)</label><input id="pg-clabe" name="clabe" inputmode="numeric" maxlength="22" value="${esc(portal.pago.clabe)}" placeholder="012 180 00000000000 0">
+      <div class="rejilla-2">
+        <div><label for="pg-banco">Banco</label><input id="pg-banco" name="banco" maxlength="40" value="${esc(portal.pago.banco)}" placeholder="BBVA"></div>
+        <div><label for="pg-titular">Titular</label><input id="pg-titular" name="titular" maxlength="80" value="${esc(portal.pago.titular)}"></div>
+      </div>
+      <div class="botones"><button class="boton sec" type="submit">Guardar cuenta</button></div>
+    </form>
     <div class="botones"><button class="boton sec" data-action="previa-planes" ${lista.length ? '' : 'disabled'}>👁 Ver como cliente</button></div>
     ${lista.length ? lista.map((s, i) => `
       <div class="tarjeta">
         <div class="fila"><div style="min-width:0"><b>${esc(s.nombre)}</b>
-          <div class="sub">${esc(CATEGORIAS[s.categoria] || '')} · ${esc(precioTexto(s))}</div></div>
+          <div class="sub">${esc(CATEGORIAS[s.categoria] || '')} · ${esc(precioTexto(s))}${ofertaVigente(s) ? ` (antes ${esc(dinero(s.precio_antes))})` : ''}</div>
+          ${s.disponible_hasta ? `<div class="sub">${disponible(s) ? '⏳ Se vende hasta' : '⛔ Venta cerrada el'} ${esc(fechaCorta(s.disponible_hasta))}</div>` : ''}
+          ${s.cupo ? `<div class="sub">👥 Cupo: ${esc((portal.compras || []).filter(c => c.servicio_id === s.id && ['pendiente', 'avisado', 'pagado'].includes(c.estado)).length)} de ${esc(s.cupo)}</div>` : ''}</div>
           <div class="mover"><button data-action="mover-servicio" data-id="${esc(s.id)}" data-dir="-1" aria-label="Subir" ${i ? '' : 'disabled'}>↑</button>
             <button data-action="mover-servicio" data-id="${esc(s.id)}" data-dir="1" aria-label="Bajar" ${i < lista.length - 1 ? '' : 'disabled'}>↓</button></div></div>
-        <div class="filtros" style="margin:8px 0 0">${s.destacado ? '<span class="chip acento">⭐ Más popular</span>' : ''}${s.activo ? '<span class="chip ok">Visible</span>' : '<span class="chip no">Oculto</span>'}</div>
+        <div class="filtros" style="margin:8px 0 0">${s.destacado ? '<span class="chip acento">⭐ Más elegido</span>' : ''}${s.activo && disponible(s) ? '<span class="chip ok">Visible</span>' : s.activo ? '<span class="chip no">Venta cerrada</span>' : '<span class="chip no">Oculto</span>'}</div>
         <div class="botones"><button class="boton sec mini" data-action="form-servicio" data-id="${esc(s.id)}">Editar</button></div>
       </div>`).join('') : '<div class="vacio">Aún no tienes servicios. Toca «+ Nuevo» para crear el primero.</div>'}`;
 }
@@ -380,17 +397,43 @@ function formServicio(id) {
         <div><label for="sv-cat">Tipo</label><select id="sv-cat" name="categoria">${Object.entries(CATEGORIAS).map(([k, t]) => `<option value="${k}" ${s.categoria === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
         <div><label for="sv-precio">Precio (MXN)</label><input id="sv-precio" name="precio" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(s.precio ?? '')}" placeholder="Vacío = consultar"></div>
       </div>
+      <details ${s.precio_antes || s.disponible_hasta || s.cupo ? 'open' : ''}><summary class="sub">Oferta, fecha límite y cupo</summary>
+        <div class="rejilla-2">
+          <div><label for="sv-antes">Precio normal (tachado)</label><input id="sv-antes" name="precio_antes" type="number" min="0" step="0.01" inputmode="decimal" value="${esc(s.precio_antes ?? '')}" placeholder="Ej. 599"></div>
+          <div><label for="sv-oferta">Oferta hasta</label><input id="sv-oferta" name="oferta_hasta" type="date" value="${esc(fechaInput(s.oferta_hasta))}"></div>
+          <div><label for="sv-hasta">Se vende hasta</label><input id="sv-hasta" name="disponible_hasta" type="date" value="${esc(fechaInput(s.disponible_hasta))}"></div>
+          <div><label for="sv-cupo">Cupo (lugares)</label><input id="sv-cupo" name="cupo" type="number" min="1" max="10000" step="1" inputmode="numeric" value="${esc(s.cupo ?? '')}" placeholder="Sin límite"></div>
+        </div>
+        <p class="sub">Después de «Oferta hasta» se cobra el precio normal. Después de «Se vende hasta» el servicio se oculta solo.</p>
+      </details>
       <label for="sv-periodo">Periodo</label><input id="sv-periodo" name="periodo" maxlength="30" value="${esc(s.periodo)}" placeholder="al mes · 4 semanas · pago único">
       <label for="sv-desc">Descripción</label><textarea id="sv-desc" name="descripcion" maxlength="500">${esc(s.descripcion)}</textarea>
       <label for="sv-incluye">¿Qué incluye? (uno por línea, máx. 15)</label><textarea id="sv-incluye" name="incluye" rows="5">${esc((s.incluye || []).join('\n'))}</textarea>
-      <label class="fila-izq" style="color:var(--texto)"><input type="checkbox" name="destacado" ${s.destacado ? 'checked' : ''} style="width:auto;min-height:auto"> ⭐ Destacar como «Más popular»</label>
+      <label class="fila-izq" style="color:var(--texto)"><input type="checkbox" name="destacado" ${s.destacado ? 'checked' : ''} style="width:auto;min-height:auto"> ⭐ Destacar como «Más elegido»</label>
       <label class="fila-izq" style="color:var(--texto)"><input type="checkbox" name="activo" ${s.activo !== false ? 'checked' : ''} style="width:auto;min-height:auto"> Visible para clientes</label>
       <div class="botones"><button class="boton" type="submit">Guardar</button><button class="boton sec" type="button" data-action="cerrar">Cancelar</button>
         ${id ? `<button class="boton peligro" type="button" data-action="borrar-servicio" data-id="${esc(id)}">Borrar</button>` : ''}</div>
     </form>`);
 }
 
+// Fecha (yyyy-mm-dd) ⇄ fin de ese día en hora local
+const fechaInput = iso => { if (!iso) return ''; const f = new Date(iso); return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`; };
+const finDelDia = v => v ? new Date(`${v}T23:59:59`).toISOString() : null;
+// CLABE: 18 dígitos con dígito verificador (pesos 3, 7, 1)
+function clabeValida(c) {
+  if (!/^\d{18}$/.test(c)) return false;
+  const suma = [...c.slice(0, 17)].reduce((t, d, i) => t + (Number(d) * [3, 7, 1][i % 3]) % 10, 0);
+  return (10 - (suma % 10)) % 10 === Number(c[17]);
+}
+
 EXTRA.vistas.servicios = vServicios;
+EXTRA.forms['datos-pago'] = async d => {
+  const clabe = String(d.clabe || '').replace(/\D/g, '');
+  if (clabe && !clabeValida(clabe)) return aviso('Esa CLABE no es válida: revisa los 18 dígitos.');
+  const datos = { clabe: clabe || null, banco: String(d.banco || '').trim() || null, titular: String(d.titular || '').trim() || null };
+  try { await Nube.guardarAjustes(datos); portal.pago = { clabe, banco: datos.banco || '', titular: datos.titular || '' }; aviso(clabe ? 'Cuenta guardada ✓ Ya pueden comprarte en la app' : 'Cuenta borrada: la compra en la app queda desactivada'); render(); }
+  catch (e) { aviso(e.message); }
+};
 EXTRA.forms.servicio = async (d, form) => {
   const id = form.dataset.id || undefined;
   const actual = (portal.servicios || []).find(x => x.id === id);
@@ -399,6 +442,9 @@ EXTRA.forms.servicio = async (d, form) => {
     periodo: String(d.periodo || '').trim() || null, descripcion: String(d.descripcion || '').trim() || null,
     incluye: String(d.incluye || '').split('\n').map(x => x.trim()).filter(Boolean).slice(0, 15),
     destacado: !!d.destacado, activo: !!d.activo,
+    precio_antes: d.precio_antes === '' || d.precio_antes == null ? null : Math.round(Number(d.precio_antes) * 100) / 100,
+    oferta_hasta: finDelDia(d.oferta_hasta), disponible_hasta: finDelDia(d.disponible_hasta),
+    cupo: d.cupo === '' || d.cupo == null ? null : Math.max(1, Math.round(Number(d.cupo))),
     orden: actual ? actual.orden : Math.max(0, ...(portal.servicios || []).map(x => x.orden + 1)),
   };
   try { await Nube.guardarServicio(datos); cerrarModal(); aviso('Servicio guardado ✓'); portal.servicios = null; await cargarServicios(); }
@@ -653,3 +699,44 @@ EXTRA.forms['responder-chat'] = async (d, form) => {
     render(); $('#chat-fin')?.scrollIntoView();
   } catch (e) { aviso(e.message); }
 };
+
+/* ================= Compras por transferencia ================= */
+portal.compras = null;
+async function cargarCompras() {
+  try { portal.compras = await Nube.compras(); } catch (e) { portal.compras = []; }
+}
+const nombreCuenta = id => { const c = (portal.cuentas || []).find(x => x.id === id); return c ? (db.clientes.find(x => x.cuentaId === id)?.nombre || c.nombre) : 'Cliente'; };
+function bloqueComprasPagos() {
+  const lista = (portal.compras || []).filter(c => c.estado === 'pendiente' || c.estado === 'avisado');
+  const recientes = (portal.compras || []).filter(c => c.estado === 'pagado').slice(0, 5);
+  if (!lista.length && !recientes.length) return '';
+  return `<h2>💸 Pagos por transferencia</h2>
+    ${lista.length ? '' : '<p class="sub">Nada por confirmar.</p>'}
+    ${lista.map(c => `<div class="tarjeta">
+      <div class="fila"><div style="min-width:0"><b class="trunc">${esc(nombreCuenta(c.cliente_id))}</b>
+        <div class="sub">${esc(c.servicio_nombre)} · <b>${esc(dinero(c.monto))} MXN</b></div>
+        <div class="sub">Ref. <b>${esc(c.referencia)}</b> · ${fechaBonita(c.creada_en)}</div></div>
+        <span class="chip ${c.estado === 'avisado' ? 'acento' : 'no'}">${c.estado === 'avisado' ? 'Dice que ya pagó' : 'Sin pagar aún'}</span></div>
+      <p class="aviso-nota">Busca en tu app del banco un depósito de ${esc(dinero(c.monto))} con concepto ${esc(c.referencia)}.</p>
+      <div class="botones"><button class="boton mini" data-action="compra-confirmar" data-id="${esc(c.id)}">✓ Sí me llegó</button>
+        <button class="boton sec mini" data-action="compra-rechazar" data-id="${esc(c.id)}">No me llegó</button></div>
+    </div>`).join('')}
+    ${recientes.length ? `<details><summary class="sub">Últimos pagos confirmados</summary>${recientes.map(c => `<div class="sub">✓ ${esc(nombreCuenta(c.cliente_id))} · ${esc(c.servicio_nombre)} · ${esc(dinero(c.monto))} · ${esc(c.referencia)}</div>`).join('')}</details>` : ''}`;
+}
+function alertaComprasHoy() {
+  const n = (portal.compras || []).filter(c => c.estado === 'avisado').length;
+  return n ? `<div class="tarjeta click" style="border-color:var(--acento)" data-action="tab" data-tab="pagos"><b>💸 ${n} pago(s) por confirmar</b><p class="sub">Revisa tu banco y confírmalos en Pagos.</p></div>` : '';
+}
+async function marcarCompra(el, estado) {
+  const c = (portal.compras || []).find(x => x.id === el.dataset.id);
+  if (!c) return;
+  if (estado === 'rechazado' && !confirm(`¿Marcar que NO te llegó el pago de ${nombreCuenta(c.cliente_id)}? Verá «Pago no recibido».`)) return;
+  try {
+    await Nube.marcarCompra(c.id, estado);
+    c.estado = estado;
+    if (estado === 'pagado') Nube.responder(c.cliente_id, `✅ Recibí tu pago de ${dinero(c.monto)} por ${c.servicio_nombre}. ¡Gracias!`).catch(() => {});
+    aviso(estado === 'pagado' ? 'Pago confirmado ✓' : 'Marcado como no recibido'); render();
+  } catch (e) { aviso(e.message); }
+}
+EXTRA.acciones['compra-confirmar'] = el => marcarCompra(el, 'pagado');
+EXTRA.acciones['compra-rechazar'] = el => marcarCompra(el, 'rechazado');

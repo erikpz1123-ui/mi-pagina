@@ -165,3 +165,47 @@ select pg_temp.como('00000000-0000-0000-0000-00000000000e') \g /dev/null
 select pg_temp.esperar((select count(*) from servicios) = 2, 'el entrenador ve también los borradores') \g /dev/null
 reset role;
 \echo SERVICIOS VERIFICADOS
+
+-- ===== Compras por transferencia (migración 2026-11-24) =====
+select pg_temp.como('00000000-0000-0000-0000-00000000000e') \g /dev/null
+insert into servicios (nombre, precio, precio_antes, oferta_hasta) values ('Oferta vencida', 499, 599, now() - interval '1 day');
+insert into servicios (nombre, precio, disponible_hasta) values ('Venta cerrada', 300, now() - interval '1 hour');
+insert into servicios (nombre, precio, cupo) values ('Con cupo 1', 899, 1);
+reset role;
+select pg_temp.como('00000000-0000-0000-0000-00000000000a') \g /dev/null
+insert into compras (servicio_id, monto, estado) select id, 1, 'pagado' from servicios where nombre = 'VIP';
+select pg_temp.esperar((select monto from compras where servicio_nombre = 'VIP') = 1500 and (select estado from compras where servicio_nombre = 'VIP') = 'pendiente',
+  'el servidor fija el precio real y el estado aunque el teléfono mande otros') \g /dev/null
+insert into compras (servicio_id) select id from servicios where nombre = 'Oferta vencida';
+select pg_temp.esperar((select monto from compras where servicio_nombre = 'Oferta vencida') = 599, 'terminada la oferta se cobra el precio normal') \g /dev/null
+do $$ begin
+  begin insert into compras (servicio_id) select id from servicios where nombre = 'Venta cerrada';
+    raise exception 'FALLÓ: se pudo comprar un servicio vencido';
+  exception when raise_exception then raise notice 'ok: no se puede comprar después de la fecha límite'; end;
+end $$;
+insert into compras (servicio_id) select id from servicios where nombre = 'Con cupo 1';
+update compras set estado = 'pagado' where servicio_nombre = 'VIP';
+select pg_temp.esperar((select estado from compras where servicio_nombre = 'VIP') = 'pendiente', 'un cliente no puede marcar su compra como pagada') \g /dev/null
+select avisar_transferencia((select id from compras where servicio_nombre = 'VIP')) \g /dev/null
+select pg_temp.esperar((select estado from compras where servicio_nombre = 'VIP') = 'avisado', 'el cliente puede avisar que ya transfirió') \g /dev/null
+do $$ begin
+  begin insert into compras (servicio_id) select id from servicios where nombre = 'VIP';
+    raise exception 'FALLÓ: permitió una cuarta compra pendiente';
+  exception when raise_exception then raise notice 'ok: máximo 3 compras pendientes por cliente'; end;
+end $$;
+reset role;
+select pg_temp.como('00000000-0000-0000-0000-00000000000b') \g /dev/null
+select pg_temp.esperar((select count(*) from compras) = 0, 'un cliente no ve las compras de otro') \g /dev/null
+do $$ begin
+  begin insert into compras (servicio_id) select id from servicios where nombre = 'Con cupo 1';
+    raise exception 'FALLÓ: se vendió por encima del cupo';
+  exception when raise_exception then raise notice 'ok: respeta el cupo de lugares'; end;
+end $$;
+select pg_temp.esperar((select ocupados from cupos_ocupados() where servicio_id = (select id from servicios where nombre = 'Con cupo 1')) = 1, 'se puede consultar cuántos lugares quedan sin ver quién compró') \g /dev/null
+reset role;
+select pg_temp.esperar(pg_temp.servicios_anon() = 3, 'un visitante no ve servicios vencidos ni ocultos') \g /dev/null
+select pg_temp.como('00000000-0000-0000-0000-00000000000e') \g /dev/null
+update compras set estado = 'pagado', confirmada_en = now() where servicio_nombre = 'VIP';
+select pg_temp.esperar((select estado from compras where servicio_nombre = 'VIP') = 'pagado', 'el entrenador confirma el pago') \g /dev/null
+reset role;
+\echo COMPRAS VERIFICADAS

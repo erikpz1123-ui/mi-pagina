@@ -164,6 +164,7 @@ function vHoy() {
   return `
     <h1>${saludo}, Erik ⚡</h1>
     <p class="sub">${new Date().toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+    ${typeof alertaComprasHoy === 'function' ? alertaComprasHoy() : ''}
 
     ${db.activo ? `
       <div class="tarjeta" style="border-color:var(--acento)">
@@ -559,6 +560,7 @@ function vPagos() {
   return `
     <div class="cabecera"><div><h1>Pagos</h1><p class="sub">Controla quién te ha pagado</p></div></div>
     ${bloqueServiciosPagos()}
+    ${typeof bloqueComprasPagos === 'function' ? bloqueComprasPagos() : ''}
     <div class="fila tarjeta">
       <button class="boton sec mini" data-action="mes" data-dir="-1" aria-label="Mes anterior">←</button>
       <b>${mesBonito(mesPagos)}</b>

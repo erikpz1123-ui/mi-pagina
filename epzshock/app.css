@@ -317,3 +317,8 @@ details.tarjeta summary::-webkit-details-marker { display: none; }
 .plan-precio { font-size: 1.5rem; font-weight: 900; color: var(--acento-fuerte); font-variant-numeric: tabular-nums; }
 .plan-incluye { list-style: none; padding: 0; display: grid; gap: 4px; font-size: .9rem; }
 .plan-incluye li::before { content: "✓ "; color: var(--ok); font-weight: 800; }
+.plan-antes { font-size: 1rem; color: var(--suave); font-weight: 600; margin-left: 6px; }
+.pago { display: grid; gap: 12px; }
+.pago > div { display: grid; gap: 2px; }
+.pago .boton { justify-self: start; margin-top: 4px; }
+.clabe { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 1.1rem; letter-spacing: .04em; font-variant-numeric: tabular-nums; }

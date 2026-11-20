@@ -122,24 +122,39 @@ function pantallaSolicitud(ref) {
 
 /* ===== Planes y precios (servicios del entrenador) ===== */
 const CATEGORIAS = { reto: '🔥 Retos', plan: '💪 Planes personalizados', otro: '✨ Otros servicios' };
-// En la app nativa de iPhone no se muestran precios (reglas de Apple sobre ventas fuera de la app)
+// En las apps de las tiendas (iPhone/Android) no se venden servicios digitales por fuera: solo en la web
+const esAppNativa = () => !!window.Capacitor?.isNativePlatform?.();
 const mostrarPrecios = () => !(window.Capacitor?.getPlatform?.() === 'ios');
-const precioTexto = s => s.precio == null ? 'Consultar precio' : `${dinero(s.precio)} MXN${s.periodo ? ' ' + s.periodo : ''}`;
+const ofertaVigente = s => s.precio_antes != null && s.precio != null && s.precio_antes > s.precio && (!s.oferta_hasta || new Date() < new Date(s.oferta_hasta));
+const precioVigente = s => (s.oferta_hasta && new Date() >= new Date(s.oferta_hasta) && s.precio_antes != null) ? s.precio_antes : s.precio;
+const precioTexto = s => s.precio == null ? 'Consultar precio' : `${dinero(precioVigente(s))} MXN${s.periodo ? ' ' + s.periodo : ''}`;
+const disponible = s => s.activo !== false && (!s.disponible_hasta || new Date() < new Date(s.disponible_hasta));
+const fechaCorta = iso => new Date(iso).toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'America/Mexico_City' });
 
-function htmlPlanes(lista, modo) {
+function htmlPlanes(lista, modo, cupos = {}) {
   return Object.entries(CATEGORIAS).map(([cat, titulo]) => {
-    const grupo = lista.filter(s => (s.categoria || 'plan') === cat);
+    const grupo = lista.filter(s => (s.categoria || 'plan') === cat && (modo === 'previa' || disponible(s)));
     if (!grupo.length) return '';
-    return `<h3 class="cat-planes">${titulo}</h3>` + grupo.map(s => `
+    return `<h3 class="cat-planes">${titulo}</h3>` + grupo.map(s => {
+      const quedan = s.cupo ? Math.max(0, s.cupo - (cupos[s.id] || 0)) : null;
+      const agotado = quedan === 0;
+      const sePuedeComprar = modo === 'cliente' && s.precio != null && !esAppNativa() && cli.pago?.clabe && !agotado;
+      return `
       <div class="tarjeta plan ${s.destacado ? 'plan-destacado' : ''} ${s.activo === false ? 'plan-oculto' : ''}">
-        ${s.destacado ? '<span class="chip acento">⭐ Más popular</span>' : ''}${s.activo === false ? '<span class="chip no">Oculto</span>' : ''}
+        <div class="filtros" style="margin:0">${s.destacado ? '<span class="chip acento">⭐ Más elegido</span>' : ''}${s.activo === false ? '<span class="chip no">Oculto</span>' : ''}
+          ${quedan != null ? `<span class="chip ${quedan <= 3 ? 'fuego' : ''}">${agotado ? 'Agotado' : `Quedan ${quedan} de ${s.cupo} lugares`}</span>` : ''}</div>
         <b class="plan-nombre">${esc(s.nombre)}</b>
-        ${mostrarPrecios() ? `<div class="plan-precio">${esc(precioTexto(s))}</div>` : ''}
+        ${mostrarPrecios() ? `<div class="plan-precio">${esc(precioTexto(s))}${ofertaVigente(s) ? ` <s class="plan-antes">${esc(dinero(s.precio_antes))}</s>` : ''}</div>` : ''}
+        ${mostrarPrecios() && ofertaVigente(s) && s.oferta_hasta ? `<span class="chip fuego">Preventa hasta el ${esc(fechaCorta(s.oferta_hasta))}</span>` : ''}
+        ${s.disponible_hasta ? `<p class="sub">⏳ Inscripciones hasta el ${esc(fechaCorta(s.disponible_hasta))}</p>` : ''}
         ${s.descripcion ? `<p class="sub">${esc(s.descripcion)}</p>` : ''}
         ${(s.incluye || []).length ? `<ul class="plan-incluye">${s.incluye.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
-        ${modo === 'cliente' ? `<button class="boton ancho" data-action="c-quiero" data-id="${esc(s.id)}">Lo quiero</button>`
+        ${modo === 'cliente' ? (agotado ? '<button class="boton sec ancho" disabled>Agotado</button>'
+            : sePuedeComprar ? `<button class="boton ancho" data-action="c-comprar" data-id="${esc(s.id)}">Comprar</button>`
+            : `<button class="boton ancho" data-action="c-quiero" data-id="${esc(s.id)}">Lo quiero</button>`)
           : modo === 'publico' ? `<button class="boton sec ancho" data-action="c-me-interesa" data-nombre="${esc(s.nombre)}">Me interesa</button>` : ''}
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }).join('');
 }
 
@@ -262,10 +277,10 @@ async function refrescarCliente() {
   cli.cargando = true;
   try {
     await sincronizarCola();
-    const [rutinas, retos, accesos, mensajes, beneficios, entrenos, ajustes, servicios] = await Promise.all([
-      Nube.misRutinas(), Nube.retosPublicos(), Nube.misAccesos(), Nube.mensajes(), Nube.beneficios(), Nube.misEntrenos(), Nube.ajustes(), Nube.servicios(),
+    const [rutinas, retos, accesos, mensajes, beneficios, entrenos, ajustes, servicios, compras, cupos] = await Promise.all([
+      Nube.misRutinas(), Nube.retosPublicos(), Nube.misAccesos(), Nube.mensajes(), Nube.beneficios(), Nube.misEntrenos(), Nube.ajustes(), Nube.servicios(), Nube.misCompras(), Nube.cupos(),
     ]);
-    Object.assign(cli, { rutinas, retos, accesos, mensajes, beneficios, entrenos, servicios, whatsappErik: ajustes?.whatsapp || '', iaActiva: !!ajustes?.ia_activa, error: '' });
+    Object.assign(cli, { rutinas, retos, accesos, mensajes, beneficios, entrenos, servicios, compras, cupos: Object.fromEntries((cupos || []).map(x => [x.servicio_id, Number(x.ocupados)])), pago: { clabe: ajustes?.clabe, banco: ajustes?.banco, titular: ajustes?.titular }, whatsappErik: ajustes?.whatsapp || '', iaActiva: !!ajustes?.ia_activa, error: '' });
     cli.local.cache = rutinas;
     // Las descargas se actualizan si Erik cambió la rutina; las que ya no están activas se borran
     for (const id of Object.keys(cli.local.descargas)) {
@@ -364,13 +379,81 @@ const mostrarAvisoInstalar = () => { try { return !estaInstalada() && !localStor
 // Animación del ejercicio: la que trae la rutina o, si es una rutina antigua, la de la biblioteca por nombre
 const demoDe = it => it.demo || (DEMOS[it.nombre] ? `ejercicios/${DEMOS[it.nombre]}` : '');
 
+const ESTADO_COMPRA = {
+  pendiente: ['no', 'Pendiente de pago'], avisado: ['acento', 'Erik está verificando tu pago'],
+  pagado: ['ok', 'Pagado ✓'], rechazado: ['fuego', 'Pago no recibido'], cancelado: ['', 'Cancelada'],
+};
 function cPlanes() {
   const lista = cli.servicios || [];
+  const compras = (cli.compras || []).filter(c => c.estado !== 'cancelado').slice(0, 5);
   return `
     <h1>Planes 🛒</h1>
-    <p class="sub">Elige tu plan y Erik te contacta para confirmarlo. El pago se hace directo con él.</p>
-    ${lista.length ? htmlPlanes(lista, 'cliente') : `<div class="vacio">${Nube.enLinea() ? 'Pronto verás aquí los planes disponibles.' : 'Conéctate a internet para ver los planes.'}</div>`}`;
+    <p class="sub">${esAppNativa() ? 'Elige tu plan y Erik te contacta para confirmarlo.' : 'Compra tu plan con transferencia bancaria. Erik confirma tu pago y te activa.'}</p>
+    ${compras.length ? `<h2>Mis compras</h2>${compras.map(c => {
+      const [cls, txt] = ESTADO_COMPRA[c.estado] || ['', c.estado];
+      return `<div class="tarjeta"><div class="fila"><b class="trunc">${esc(c.servicio_nombre)}</b><span class="chip ${cls}">${txt}</span></div>
+        <div class="sub">${esc(dinero(c.monto))} MXN · referencia <b>${esc(c.referencia)}</b> · ${fechaBonita(c.creada_en)}</div>
+        ${c.estado === 'pendiente' ? `<div class="botones"><button class="boton mini" data-action="c-ver-pago" data-id="${esc(c.id)}">Ver datos de pago</button></div>` : ''}</div>`;
+    }).join('')}` : ''}
+    ${lista.length ? htmlPlanes(lista, 'cliente', cli.cupos || {}) : `<div class="vacio">${Nube.enLinea() ? 'Pronto verás aquí los planes disponibles.' : 'Conéctate a internet para ver los planes.'}</div>`}`;
 }
+
+const formatoClabe = c => String(c || '').replace(/^(\d{3})(\d{3})(\d{11})(\d)$/, '$1 $2 $3 $4');
+function modalPago(c) {
+  const p = cli.pago || {};
+  abrirModal(`
+    <h2>Paga tu ${esc(c.servicio_nombre)}</h2>
+    <p class="sub">Haz una transferencia (SPEI) desde la app de tu banco con estos datos:</p>
+    <div class="tarjeta pago">
+      <div><span class="sub">Monto exacto</span><b class="plan-precio">${esc(dinero(c.monto))} MXN</b></div>
+      <div><span class="sub">CLABE</span><b class="clabe">${esc(formatoClabe(p.clabe))}</b>
+        <button class="boton sec mini" data-action="c-copiar" data-valor="${esc(p.clabe)}">Copiar CLABE</button></div>
+      <div><span class="sub">Banco</span><b>${esc(p.banco || '')}</b></div>
+      <div><span class="sub">Beneficiario</span><b>${esc(p.titular || '')}</b></div>
+      <div><span class="sub">Concepto / referencia (escríbelo en la transferencia)</span><b class="clabe">${esc(c.referencia)}</b>
+        <button class="boton sec mini" data-action="c-copiar" data-valor="${esc(c.referencia)}">Copiar referencia</button></div>
+    </div>
+    <p class="aviso-nota">Cuando Erik vea tu pago en su cuenta lo confirma y te activa el servicio. Si algo no cuadra, te escribe por el chat.</p>
+    <div class="botones">
+      <button class="boton ancho" data-action="c-ya-transferi" data-id="${esc(c.id)}">Ya hice la transferencia</button>
+      ${cli.whatsappErik ? `<a class="boton sec ancho" target="_blank" rel="noopener noreferrer" href="${linkWhats(cli.whatsappErik, `Hola Erik, te envío mi comprobante de ${c.servicio_nombre} (${dinero(c.monto)} MXN) · referencia ${c.referencia}`)}">Enviar comprobante por WhatsApp</a>` : ''}
+      <button class="boton sec ancho" data-action="cerrar">La hago después</button>
+    </div>`);
+}
+
+EXTRA.acciones['c-comprar'] = el => {
+  const s = (cli.servicios || []).find(x => x.id === el.dataset.id);
+  if (!s) return;
+  abrirModal(`
+    <h2>${esc(s.nombre)}</h2>
+    <p class="plan-precio">${esc(precioTexto(s))}</p>
+    ${(s.incluye || []).length ? `<ul class="plan-incluye">${s.incluye.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
+    <p class="sub" style="margin-top:8px">Se pagará por transferencia bancaria. Al continuar te damos los datos y una referencia única.</p>
+    <div class="botones"><button class="boton ancho" data-action="c-confirmar-compra" data-id="${esc(s.id)}">Continuar al pago</button>
+      <button class="boton sec ancho" data-action="cerrar">Cancelar</button></div>`);
+};
+EXTRA.acciones['c-confirmar-compra'] = async el => {
+  el.disabled = true;
+  try {
+    const c = await Nube.comprar(el.dataset.id);
+    cli.compras = [c, ...(cli.compras || [])];
+    if (c.servicio_id) cli.cupos = { ...(cli.cupos || {}), [c.servicio_id]: ((cli.cupos || {})[c.servicio_id] || 0) + 1 };
+    modalPago(c);
+  } catch (e) { aviso(e.message); el.disabled = false; }
+};
+EXTRA.acciones['c-ver-pago'] = el => { const c = (cli.compras || []).find(x => x.id === el.dataset.id); if (c) modalPago(c); };
+EXTRA.acciones['c-copiar'] = el => {
+  navigator.clipboard?.writeText(el.dataset.valor).then(() => aviso('Copiado ✓'), () => aviso(el.dataset.valor));
+};
+EXTRA.acciones['c-ya-transferi'] = async el => {
+  const c = (cli.compras || []).find(x => x.id === el.dataset.id);
+  try {
+    await Nube.avisarTransferencia(c.id);
+    c.estado = 'avisado';
+    await Nube.pedirServicio(`💸 Ya transferí ${dinero(c.monto)} MXN por ${c.servicio_nombre} · referencia ${c.referencia}`).catch(() => {});
+    cerrarModal(); aviso('¡Gracias! Erik confirmará tu pago pronto ✓'); renderCliente();
+  } catch (e) { aviso(e.message); }
+};
 
 EXTRA.acciones['c-quiero'] = el => {
   const s = (cli.servicios || []).find(x => x.id === el.dataset.id);

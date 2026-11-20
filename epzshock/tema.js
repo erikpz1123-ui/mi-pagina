@@ -114,3 +114,18 @@ document.addEventListener('DOMContentLoaded', () => {
     render();
   };
 });
+
+/* El hosting gratuito (Netlify) añade una insignia flotante abajo a la derecha.
+   No se oculta: se mide y la barra de pestañas se sube para que no la tape. */
+(function respetarInsignia() {
+  const medir = () => {
+    const f = document.getElementById('nl-badge-frame');
+    const r = f && getComputedStyle(f).display !== 'none' ? f.getBoundingClientRect() : null;
+    // solo cuenta la parte de la insignia que queda pegada al borde inferior de la pantalla
+    const alto = r && r.height > 0 && r.bottom >= window.innerHeight - 2 ? Math.ceil(r.height) + 4 : 0;
+    document.documentElement.style.setProperty('--insignia', alto + 'px');
+  };
+  new MutationObserver(medir).observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener('resize', medir);
+  document.addEventListener('DOMContentLoaded', medir);
+})();
